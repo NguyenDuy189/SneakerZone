@@ -1,7 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// 1. IMPORT CÁC CONTROLLER (Lưu ý Namespace Admin)
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\BrandController;
+use App\Http\Controllers\Admin\CategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -9,20 +13,41 @@ use App\Http\Controllers\Admin\DashboardController;
 |--------------------------------------------------------------------------
 */
 
-// 1. Route Trang chủ: Tự động chuyển hướng vào Dashboard
+// 2. ROUTE TRANG CHỦ
+// Khi vào trang chủ, tự động chuyển hướng vào Dashboard quản trị
 Route::get('/', function () {
-    return redirect()->route('dashboard');
+    return redirect()->route('admin.dashboard');
 });
 
-// 2. Route Dashboard
-// Tôi đặt name là 'dashboard' để sau này gọi route('dashboard') trong view cho tiện
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard.index');
 
-// 3. (Gợi ý mở rộng) Các route quản lý đơn hàng sau này
-// Bạn có thể bỏ comment khi đã viết xong method show trong controller
-/*
-Route::prefix('orders')->name('orders.')->group(function () {
-    // Ví dụ: Xem chi tiết đơn hàng (GET /orders/DH001)
-    Route::get('/{code}', [DashboardController::class, 'showOrder'])->name('show');
+// 3. NHÓM ROUTE QUẢN TRỊ (ADMIN)
+// - prefix('admin'): Tất cả URL sẽ bắt đầu bằng /admin (VD: /admin/brands)
+// - name('admin.'): Tất cả tên route sẽ bắt đầu bằng admin. (VD: admin.brands.index)
+
+Route::prefix('admin')->name('admin.')->group(function () {
+
+    // --- DASHBOARD ---
+    // URL: /admin/dashboard
+    // Route Name: admin.dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+
+    // --- QUẢN LÝ THƯƠNG HIỆU (BRANDS) ---
+    // Route::resource tự động tạo 7 route chuẩn (index, create, store, edit, update, destroy...)
+    // URL: /admin/brands
+    // Route Name: admin.brands.index, admin.brands.create...
+    Route::resource('brands', BrandController::class);
+
+
+    // --- QUẢN LÝ DANH MỤC (CATEGORIES) ---
+    // URL: /admin/categories
+    // Route Name: admin.categories.index...
+    Route::resource('categories', CategoryController::class);
+
+
+    // --- (DÀNH CHO TƯƠNG LAI) ---
+    // Tại đây bạn sẽ thêm tiếp Products, Orders, Users...
+    // Route::resource('products', ProductController::class);
+    // Route::resource('orders', OrderController::class);
+
 });
-*/
