@@ -22,7 +22,7 @@
                     <div>
                         <label class="block mb-2 text-sm font-bold text-gray-800">Tên danh mục <span class="text-red-500">*</span></label>
                         <input name="name" type="text" class="w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:bg-white" placeholder="VD: Giày nam, Áo thun..." value="{{ old('name') }}" />
-                        @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @error('name') <p class="mt-1 text-xs text-red-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p></p> @enderror
                     </div>
 
                     <!-- Chọn Danh mục cha -->

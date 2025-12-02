@@ -102,7 +102,7 @@
                                 Thương hiệu
                             </a>
                             <!-- Thuộc tính (Size/Color) -->
-                            <a href="#" class="block px-2 py-1.5 text-sm rounded-md transition-colors {{ request()->routeIs('admin.attributes.*') ? 'text-white bg-indigo-600' : 'text-slate-400 hover:text-white hover:bg-slate-700' }}">
+                            <a href="{{ route('admin.attributes.index')}}" class="block px-2 py-1.5 text-sm rounded-md transition-colors {{ request()->routeIs('admin.attributes.*') ? 'text-white bg-indigo-600' : 'text-slate-400 hover:text-white hover:bg-slate-700' }}">
                                 Thuộc tính (Size/Màu)
                             </a>
                              <!-- Đánh giá -->

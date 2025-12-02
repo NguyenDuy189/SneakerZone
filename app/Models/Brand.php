@@ -10,4 +10,10 @@ class Brand extends Model
     use HasFactory;
 
     protected $fillable = ['name', 'slug', 'logo_url', 'description'];
+
+    // Quan hệ: Một thương hiệu có nhiều sản phẩm
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
 }

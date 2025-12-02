@@ -30,7 +30,7 @@
                             placeholder="Ví dụ: Nike, Adidas..." 
                             value="{{ old('name') }}" />
                         @error('name') 
-                            <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> 
+                            <p class="mt-1 text-xs text-red-600 font-medium"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -71,7 +71,7 @@
                         </div>
 
                         @error('logo') 
-                            <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> 
+                            <p class="mt-1 text-xs text-red-600 font-medium"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p></p> 
                         @enderror
                     </div>
                 </div>

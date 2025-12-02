@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('attribute_id')->constrained('attributes')->onDelete('cascade');
             $table->string('value'); // Đỏ, Xanh, S, M
             $table->string('meta_value')->nullable(); // #FF0000
+            $table->integer('position')->default(0); // Dùng để sắp xếp (VD: S=1, M=2, L=3)
             $table->timestamps();
         });
     }
