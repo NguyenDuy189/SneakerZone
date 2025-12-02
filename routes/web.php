@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AttributeController;
 use Illuminate\Support\Facades\Route;
 
 // 1. IMPORT CÁC CONTROLLER (Lưu ý Namespace Admin)
@@ -44,6 +45,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
     // Route Name: admin.categories.index...
     Route::resource('categories', CategoryController::class);
 
+
+    // Route cho Attributes
+    Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']); // Ta làm form nhanh nên bỏ bớt create/edit riêng
+
+    // Route riêng để thêm/xóa giá trị con
+    Route::post('attributes/{id}/values', [AttributeController::class, 'storeValue'])->name('attributes.values.store');
+    Route::delete('attributes/values/{id}', [AttributeController::class, 'destroyValue'])->name('attributes.values.destroy');
 
     // --- (DÀNH CHO TƯƠNG LAI) ---
     // Tại đây bạn sẽ thêm tiếp Products, Orders, Users...

@@ -30,7 +30,7 @@
                             class="w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:bg-white transition-colors" 
                             value="{{ old('name', $brand->name) }}" required />
                         @error('name') 
-                            <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> 
+                            <p class="mt-1 text-xs text-red-600 font-medium"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p></p> 
                         @enderror
                     </div>
 
@@ -73,7 +73,7 @@
                         </div>
 
                         @error('logo') 
-                            <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p> 
+                            <p class="mt-1 text-xs text-red-600 font-medium"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p></p> 
                         @enderror
                     </div>
                 </div>

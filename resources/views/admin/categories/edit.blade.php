@@ -23,7 +23,7 @@
                     <div>
                         <label class="block mb-2 text-sm font-bold text-gray-800">Tên danh mục <span class="text-red-500">*</span></label>
                         <input name="name" type="text" class="w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:bg-white" value="{{ old('name', $category->name) }}" required />
-                        @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @error('name') <p class="mt-1 text-xs text-red-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p></p> @enderror
                     </div>
 
                     <!-- Cha -->
@@ -37,7 +37,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        @error('parent_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @error('parent_id') <p class="mt-1 text-xs text-red-600"><i class="fa-solid fa-circle-exclamation mr-1"></i>{{ $message }}</p></p> @enderror
                     </div>
 
                     <!-- Hiển thị -->
