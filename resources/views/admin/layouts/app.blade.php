@@ -90,7 +90,7 @@
                         
                         <div x-show="open && sidebarOpen" x-collapse class="space-y-1 mt-1 pl-10">
                             <!-- Sản phẩm -->
-                            <a href="#" class="block px-2 py-1.5 text-sm rounded-md transition-colors {{ request()->routeIs('admin.products.*') ? 'text-white bg-indigo-600' : 'text-slate-400 hover:text-white hover:bg-slate-700' }}">
+                            <a href="{{ route('admin.products.index')}}" class="block px-2 py-1.5 text-sm rounded-md transition-colors {{ request()->routeIs('admin.products.*') ? 'text-white bg-indigo-600' : 'text-slate-400 hover:text-white hover:bg-slate-700' }}">
                                 Tất cả sản phẩm
                             </a>
                             <!-- Danh mục -->

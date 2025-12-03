@@ -10,32 +10,39 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'order_code',
-        'user_id',
-        'status',          // pending, processing, shipping, completed, cancelled
-        'payment_status',  // unpaid, paid
-        'payment_method',
-        'shipping_fee',
-        'discount_amount',
-        'total_amount',
-        'shipping_address',
-        'note'
+        'order_code', 'user_id', 'status', 'payment_status', 'payment_method',
+        'shipping_fee', 'total_amount', 'shipping_address', 'note'
     ];
 
-    // Tự động chuyển JSON trong DB thành Array khi gọi $order->shipping_address
+    // Tự động ép kiểu JSON sang Mảng để dùng ngay trong View
     protected $casts = [
-        'shipping_address' => 'array',
+        'shipping_address' => 'array', // Rất quan trọng
         'total_amount' => 'decimal:2',
+        'shipping_fee' => 'decimal:2',
     ];
 
+    // Quan hệ: Đơn hàng thuộc về 1 khách (có thể null nếu khách vãng lai)
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // Scope lấy đơn thành công để tính doanh thu (Giả sử status 'completed' là thành công)
-    public function scopeSuccessful($query)
+    // Quan hệ: Đơn hàng có nhiều chi tiết
+    public function items()
     {
-        return $query->where('status', 'completed');
+        return $this->hasMany(OrderItem::class);
+    }
+
+    // Helper: Lấy màu sắc badge cho trạng thái
+    public function getStatusBadgeAttribute()
+    {
+        return match($this->status) {
+            'pending' => 'bg-yellow-100 text-yellow-800',
+            'processing' => 'bg-blue-100 text-blue-800',
+            'shipping' => 'bg-purple-100 text-purple-800',
+            'completed' => 'bg-green-100 text-green-800',
+            'cancelled' => 'bg-red-100 text-red-800',
+            default => 'bg-gray-100 text-gray-800',
+        };
     }
 }

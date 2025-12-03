@@ -1,12 +1,11 @@
 <?php
 
-use App\Http\Controllers\Admin\AttributeController;
 use Illuminate\Support\Facades\Route;
-
-// 1. IMPORT CÁC CONTROLLER (Lưu ý Namespace Admin)
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\ProductController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,48 +13,44 @@ use App\Http\Controllers\Admin\CategoryController;
 |--------------------------------------------------------------------------
 */
 
-// 2. ROUTE TRANG CHỦ
-// Khi vào trang chủ, tự động chuyển hướng vào Dashboard quản trị
+// Trang chủ chuyển hướng vào Dashboard
 Route::get('/', function () {
     return redirect()->route('admin.dashboard');
 });
 
-
-// 3. NHÓM ROUTE QUẢN TRỊ (ADMIN)
-// - prefix('admin'): Tất cả URL sẽ bắt đầu bằng /admin (VD: /admin/brands)
-// - name('admin.'): Tất cả tên route sẽ bắt đầu bằng admin. (VD: admin.brands.index)
-
+// NHÓM ROUTE ADMIN
 Route::prefix('admin')->name('admin.')->group(function () {
 
-    // --- DASHBOARD ---
-    // URL: /admin/dashboard
-    // Route Name: admin.dashboard
+    // 1. Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-
-    // --- QUẢN LÝ THƯƠNG HIỆU (BRANDS) ---
-    // Route::resource tự động tạo 7 route chuẩn (index, create, store, edit, update, destroy...)
-    // URL: /admin/brands
-    // Route Name: admin.brands.index, admin.brands.create...
+    // 2. Brands (Thương hiệu)
     Route::resource('brands', BrandController::class);
 
-
-    // --- QUẢN LÝ DANH MỤC (CATEGORIES) ---
-    // URL: /admin/categories
-    // Route Name: admin.categories.index...
+    // 3. Categories (Danh mục)
     Route::resource('categories', CategoryController::class);
 
-
-    // Route cho Attributes
-    Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']); // Ta làm form nhanh nên bỏ bớt create/edit riêng
-
-    // Route riêng để thêm/xóa giá trị con
+    // 4. Attributes (Thuộc tính)
+    Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']);
     Route::post('attributes/{id}/values', [AttributeController::class, 'storeValue'])->name('attributes.values.store');
     Route::delete('attributes/values/{id}', [AttributeController::class, 'destroyValue'])->name('attributes.values.destroy');
 
-    // --- (DÀNH CHO TƯƠNG LAI) ---
-    // Tại đây bạn sẽ thêm tiếp Products, Orders, Users...
-    // Route::resource('products', ProductController::class);
-    // Route::resource('orders', OrderController::class);
+    // 5. PRODUCTS (SẢN PHẨM) - QUAN TRỌNG: Thứ tự khai báo
+    
+    // --- Nhóm A: Các route Custom (Phải đặt TRƯỚC route resource) ---
+    
+    // Quản lý Thùng rác (Trash)
+    Route::get('products/trash', [ProductController::class, 'trash'])->name('products.trash');
+    Route::post('products/{id}/restore', [ProductController::class, 'restore'])->name('products.restore');
+    Route::delete('products/{id}/force-delete', [ProductController::class, 'forceDelete'])->name('products.force_delete');
+
+    // Quản lý Biến thể (Variants)
+    Route::post('products/{id}/variants', [ProductController::class, 'storeVariant'])->name('products.variants.store');
+    Route::put('products/variants/{variant_id}', [ProductController::class, 'updateVariant'])->name('products.variants.update'); // <--- MỚI: Route Update
+    Route::delete('products/variants/{variant_id}', [ProductController::class, 'destroyVariant'])->name('products.variants.destroy');
+
+    // --- Nhóm B: Route Resource chuẩn (Index, Create, Store, Edit, Update, Destroy) ---
+    // Route này sẽ "bắt" tất cả các URL dạng /products/{id}, nên phải để cuối cùng
+    Route::resource('products', ProductController::class);
 
 });
