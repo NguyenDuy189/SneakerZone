@@ -51,7 +51,7 @@ class Discount extends Model
 
         return true;
     }
-        public function isExpired()
+    public function isExpired()
     {
         if (!$this->end_date) return false;
 
@@ -72,5 +72,4 @@ class Discount extends Model
 
         return false;
     }
-
 }
