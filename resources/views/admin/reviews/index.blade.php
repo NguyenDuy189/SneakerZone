@@ -11,54 +11,66 @@
         <h1 class="text-2xl font-semibold text-secondary">Quản lý đánh giá sản phẩm</h1>
     </div>
 
-    {{-- BỘ LỌC --}}
-    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    {{-- BỘ LỌC (FILTER BAR) --}}
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
+        <form method="GET">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                
+                {{-- 1. Từ khóa (Keyword) --}}
+                <div class="md:col-span-4 relative group">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                    </div>
+                    <input type="text" name="keyword" value="{{ request('keyword') }}" 
+                        placeholder="Tìm tên sản phẩm, khách hàng..." 
+                        class="pl-10 pr-4 py-2.5 w-full border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm text-slate-700">
+                </div>
 
-        {{-- Từ khóa --}}
-        <div>
-            <label class="text-sm font-medium text-gray-700">Tìm kiếm</label>
-            <input type="text" name="keyword" value="{{ request('keyword') }}"
-                placeholder="Tên sản phẩm, khách hàng..."
-                class="mt-1 w-full px-3 py-2 border rounded-lg">
-        </div>
+                {{-- 2. Số sao (Rating) --}}
+                <div class="md:col-span-2">
+                    <select name="rating" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
+                        <option value="">-- Số sao --</option>
+                        @for ($i = 5; $i >= 1; $i--)
+                            <option value="{{ $i }}" {{ request('rating') == $i ? 'selected' : '' }}>
+                                {{ $i }} Sao
+                            </option>
+                        @endfor
+                    </select>
+                </div>
 
-        {{-- Sao --}}
-        <div>
-            <label class="text-sm font-medium text-gray-700">Số sao</label>
-            <select name="rating" class="mt-1 w-full px-3 py-2 border rounded-lg">
-                <option value="">Tất cả</option>
-                @for ($i = 1; $i <= 5; $i++)
-                    <option value="{{ $i }}" {{ request('rating') == $i ? 'selected' : '' }}>
-                        {{ $i }} sao
-                    </option>
-                @endfor
-            </select>
-        </div>
+                {{-- 3. Trạng thái (Status) --}}
+                <div class="md:col-span-2">
+                    <select name="status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
+                        <option value="">-- Trạng thái --</option>
+                        <option value="1" {{ request('status') === '1' ? 'selected' : '' }}>Đã duyệt</option>
+                        <option value="0" {{ request('status') === '0' ? 'selected' : '' }}>Chưa duyệt</option>
+                    </select>
+                </div>
 
-        {{-- Trạng thái --}}
-        <div>
-            <label class="text-sm font-medium text-gray-700">Trạng thái</label>
-            <select name="status" class="mt-1 w-full px-3 py-2 border rounded-lg">
-                <option value="">Tất cả</option>
-                <option value="1" {{ request('status') === '1' ? 'selected' : '' }}>Đã duyệt</option>
-                <option value="0" {{ request('status') === '0' ? 'selected' : '' }}>Chưa duyệt</option>
-            </select>
-        </div>
+                {{-- 4. Ngày tạo (Date) --}}
+                <div class="md:col-span-2">
+                    <input type="date" name="date" value="{{ request('date') }}" 
+                        class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm text-slate-600"
+                        title="Ngày tạo">
+                </div>
 
-        {{-- Ngày --}}
-        <div>
-            <label class="text-sm font-medium text-gray-700">Ngày tạo</label>
-            <input type="date" name="date" value="{{ request('date') }}"
-                class="mt-1 w-full px-3 py-2 border rounded-lg">
-        </div>
-
-        {{-- Nút lọc --}}
-        <div class="md:col-span-4 flex justify-end">
-            <button class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition">
-                Lọc kết quả
-            </button>
-        </div>
-    </form>
+                {{-- 5. Action Buttons --}}
+                <div class="md:col-span-2 flex gap-2 justify-end">
+                    {{-- Nút Lọc (Màu đen/xám đậm chuẩn style cũ) --}}
+                    <button type="submit" class="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center">
+                        <i class="fa-solid fa-filter mr-2"></i> Lọc
+                    </button>
+                    
+                    {{-- Nút Reset (Chỉ hiện khi đang lọc) --}}
+                    @if(request()->hasAny(['keyword', 'rating', 'status', 'date']))
+                        <a href="{{ url()->current() }}" class="px-4 py-2.5 text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-rose-500 transition-colors flex items-center justify-center" title="Xóa bộ lọc">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </form>
+    </div>
 
     {{-- BẢNG DỮ LIỆU --}}
     <div class="overflow-x-auto">
