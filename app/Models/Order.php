@@ -4,45 +4,99 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    // Định nghĩa các trạng thái đơn hàng để dùng chung toàn hệ thống
+    const STATUS_PENDING = 'pending';
+    const STATUS_CONFIRMED = 'confirmed';
+    const STATUS_SHIPPING = 'shipping';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_CANCELLED = 'cancelled';
+    const STATUS_RETURNED = 'returned';
 
     protected $fillable = [
-        'order_code', 'user_id', 'status', 'payment_status', 'payment_method',
-        'shipping_fee', 'total_amount', 'shipping_address', 'note'
+        'user_id',
+        'order_number',
+        'status',          // Trạng thái đơn: pending, shipping...
+        'payment_status',  // Trạng thái tiền: unpaid, paid
+        'payment_method',  // COD, Banking, Momo...
+        'grand_total',
+        'shipping_address',
+        'phone',
+        'note',
     ];
 
-    // Tự động ép kiểu JSON sang Mảng để dùng ngay trong View
+    // Tự động chuyển đổi dữ liệu
     protected $casts = [
-        'shipping_address' => 'array', // Rất quan trọng
-        'total_amount' => 'decimal:2',
-        'shipping_fee' => 'decimal:2',
+        'grand_total' => 'float',
+        'created_at'  => 'datetime',
     ];
 
-    // Quan hệ: Đơn hàng thuộc về 1 khách (có thể null nếu khách vãng lai)
+    // --- RELATIONSHIPS (QUAN HỆ) ---
+
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // Quan hệ: Đơn hàng có nhiều chi tiết
     public function items()
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    // Helper: Lấy màu sắc badge cho trạng thái
+    // --- ACCESSORS (ĐỊNH DẠNG DỮ LIỆU HIỂN THỊ) ---
+
+    // Gọi $order->formatted_total sẽ ra "1.000.000 VNĐ"
+    public function getFormattedTotalAttribute()
+    {
+        return number_format($this->grand_total, 0, ',', '.') . ' VNĐ';
+    }
+
+    // Helper lấy màu sắc badge hiển thị trong Admin (Bootstrap classes)
+    // Gọi $order->status_badge
     public function getStatusBadgeAttribute()
     {
-        return match($this->status) {
-            'pending' => 'bg-yellow-100 text-yellow-800',
-            'processing' => 'bg-blue-100 text-blue-800',
-            'shipping' => 'bg-purple-100 text-purple-800',
-            'completed' => 'bg-green-100 text-green-800',
-            'cancelled' => 'bg-red-100 text-red-800',
-            default => 'bg-gray-100 text-gray-800',
+        return match ($this->status) {
+            self::STATUS_PENDING   => 'secondary', // Màu xám
+            self::STATUS_CONFIRMED => 'primary',   // Màu xanh dương
+            self::STATUS_SHIPPING  => 'info',      // Màu xanh nhạt
+            self::STATUS_COMPLETED => 'success',   // Màu xanh lá
+            self::STATUS_CANCELLED => 'danger',    // Màu đỏ
+            self::STATUS_RETURNED  => 'warning',   // Màu vàng
+            default                => 'secondary',
         };
+    }
+
+    // Helper hiển thị tên trạng thái tiếng Việt
+    public function getStatusLabelAttribute()
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING   => 'Chờ xử lý',
+            self::STATUS_CONFIRMED => 'Đã xác nhận',
+            self::STATUS_SHIPPING  => 'Đang giao hàng',
+            self::STATUS_COMPLETED => 'Hoàn thành',
+            self::STATUS_CANCELLED => 'Đã hủy',
+            self::STATUS_RETURNED  => 'Trả hàng',
+            default                => $this->status,
+        };
+    }
+
+    // --- SCOPES (HỖ TRỢ TRUY VẤN NHANH) ---
+
+    // Dùng: Order::search('098...')->get()
+    public function scopeSearch($query, $keyword)
+    {
+        return $query->where('order_number', 'like', "%{$keyword}%")
+                     ->orWhere('phone', 'like', "%{$keyword}%");
+    }
+    
+    // Dùng: Order::byStatus('pending')->get()
+    public function scopeByStatus($query, $status)
+    {
+        return $query->where('status', $status);
     }
 }
