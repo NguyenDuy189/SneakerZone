@@ -10,17 +10,19 @@ class PurchaseOrderItem extends Model
 {
     use HasFactory;
 
-    public $timestamps = false; // Bảng chi tiết thường không cần created_at/updated_at
+    // --- QUAN TRỌNG: Khai báo tên bảng tùy chỉnh ---
+    protected $table = 'po_items'; 
+    // ----------------------------------------------
+
+    public $timestamps = false;
 
     protected $fillable = [
         'purchase_order_id',
         'product_variant_id',
         'quantity',
-        'import_price', // Giá nhập đơn vị
-        'total',        // Thành tiền (qty * price)
+        'import_price',
+        'total',
     ];
-
-    // --- RELATIONSHIPS ---
 
     public function purchaseOrder(): BelongsTo
     {
