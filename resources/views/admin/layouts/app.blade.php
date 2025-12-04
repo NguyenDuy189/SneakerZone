@@ -106,7 +106,7 @@
                                 Thuộc tính (Size/Màu)
                             </a>
                              <!-- Đánh giá -->
-                             <a href="#" class="block px-2 py-1.5 text-sm rounded-md transition-colors {{ request()->routeIs('admin.reviews.*') ? 'text-white bg-indigo-600' : 'text-slate-400 hover:text-white hover:bg-slate-700' }}">
+                             <a href="{{ route('admin.reviews.index') }}" class="block px-2 py-1.5 text-sm rounded-md transition-colors {{ request()->routeIs('admin.reviews.*') ? 'text-white bg-indigo-600' : 'text-slate-400 hover:text-white hover:bg-slate-700' }}">
                                 Đánh giá & Review
                             </a>
                         </div>
