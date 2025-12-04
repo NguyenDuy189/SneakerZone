@@ -165,7 +165,7 @@
                         Marketing
                     </div>
 
-                    <a href="#" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors relative">
+                    <a href="{{ route('admin.discounts.index')}}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors relative">
                         <i class="fa-solid fa-ticket w-6 h-6 flex items-center justify-center"></i>
                         <span x-show="sidebarOpen" class="ml-3 truncate">Mã giảm giá</span>
                     </a>
