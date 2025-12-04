@@ -13,7 +13,7 @@ class Product extends Model
     protected $table = 'products';
 
     protected $fillable = [
-        'name', 'slug', 'sku_code', 
+        'name', 'price', 'image', 'category_id', 'slug', 'sku_code', 
         'description', 'short_description', 
         'brand_id', 'thumbnail', 'gallery', 
         'price_min', 'status', 'is_featured'
@@ -44,5 +44,10 @@ class Product extends Model
     public function variants()
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
     }
 }
