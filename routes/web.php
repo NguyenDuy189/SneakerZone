@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ReviewController;
@@ -118,19 +119,26 @@ Route::prefix('admin')
 
         // Trang danh sách review (admin)
         Route::prefix('reviews')->name('reviews.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\ReviewController::class, 'index'])
+                ->name('index');
+            Route::get('/reviews/approve/{id}', [ReviewController::class, 'approve'])
+            ->name('show');
+            Route::post('/reject/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'reject'])
+                ->name('reject');
+            Route::delete('/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'destroy'])
+                ->name('destroy');
+        });
 
-        Route::get('/', [\App\Http\Controllers\Admin\ReviewController::class, 'index'])
-            ->name('index');
+        
+        Route::resource('discounts', DiscountController::class)->except(['show']);
+        Route::prefix('discounts')->name('discounts.')->group(function () {
+            Route::get('/', [DiscountController::class, 'index'])->name('index');
+            Route::get('/create', [DiscountController::class, 'create'])->name('create');
+            Route::post('/store', [DiscountController::class, 'store'])->name('store');
+            Route::get('/edit/{id}', [DiscountController::class, 'edit'])->name('edit');
+            Route::post('/update/{id}', [DiscountController::class, 'update'])->name('update');
+            Route::post('/delete/{id}', [DiscountController::class, 'destroy'])->name('delete');
+        });
 
-        Route::get('/reviews/approve/{id}', [ReviewController::class, 'approve'])
-        ->name('show');
-
-
-        Route::post('/reject/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'reject'])
-            ->name('reject');
-
-        Route::delete('/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'destroy'])
-            ->name('destroy');
-    });
 
     });
