@@ -34,7 +34,7 @@ class DiscountController extends Controller
 
             if ($request->status === 'active') {
                 $query->where('start_date', '<=', now())
-                      ->where('end_date', '>=', now());
+                    ->where('end_date', '>=', now());
             }
 
             if ($request->status === 'expired') {
@@ -68,7 +68,7 @@ class DiscountController extends Controller
         $request->merge([
             'code' => strtoupper(trim($request->code)),
             // Nếu bỏ trống max_usage hoặc min_order, set về null hoặc 0 để không bị lỗi required
-            'max_usage' => $request->max_usage ?? 0, 
+            'max_usage' => $request->max_usage ?? 0,
             'min_order_amount' => $request->min_order_amount ?? 0,
         ]);
 
@@ -86,7 +86,7 @@ class DiscountController extends Controller
             'end_date' => $request->end_date,
             'used_count' => 0,
             // SỬA: Lưu thêm trạng thái kích hoạt
-            'is_active' => $request->has('is_active') ? true : false, 
+            'is_active' => $request->has('is_active') ? true : false,
         ]);
 
         return redirect()->route('admin.discounts.index')
@@ -157,14 +157,19 @@ class DiscountController extends Controller
     {
         Validator::make($request->all(), [
             'code' => [
-                'required', 'string', 'max:50', 'regex:/^[A-Z0-9\-]+$/',
+                'required',
+                'string',
+                'max:50',
+                'regex:/^[A-Z0-9\-]+$/',
                 Rule::unique('discounts', 'code')->ignore($ignoreId),
             ],
             'type' => ['required', Rule::in(['percentage', 'fixed'])],
-            
+
             // Validate giá trị giảm
             'value' => [
-                'required', 'numeric', 'min:1',
+                'required',
+                'numeric',
+                'min:1',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($request->type === 'percentage' && $value > 100) {
                         $fail('Giảm phần trăm không được quá 100%.');
@@ -174,7 +179,9 @@ class DiscountController extends Controller
 
             // Validate giảm tối đa
             'max_discount_value' => [
-                'nullable', 'numeric', 'min:1000',
+                'nullable',
+                'numeric',
+                'min:1000',
                 function ($attribute, $value, $fail) use ($request) {
                     // Chỉ check lỗi nếu Type là Fixed VÀ User có nhập giá trị (khác null)
                     // Logic này kết hợp với việc clear input ở View sẽ giải quyết vấn đề

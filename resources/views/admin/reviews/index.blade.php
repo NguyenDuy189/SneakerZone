@@ -132,19 +132,24 @@
                         <div class="flex justify-center gap-2">
 
                             {{-- NÚT XEM CHI TIẾT (CHỈ THÊM NÚT NÀY) --}}
-                            <a href="{{ route('admin.reviews.show', $item->id) }}"
-                                class="w-8 h-8 flex items-center justify-center rounded-lg
-                                    {{ $item->is_approved ? 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white' 
-                                                            : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white' }}
-                                    transition"
-                                title="{{ $item->is_approved ? 'Xem chi tiết' : 'Chưa duyệt – Xem chi tiết' }}">
-                                
-                                @if($item->is_approved)
-                                    <i class="fa-solid fa-eye"></i>
-                                @else
-                                    <i class="fa-solid fa-eye-slash"></i>
-                                @endif
-                            </a>
+                            <form action="{{ route('admin.reviews.approve', $item->id) }}" method="POST" class="inline-block">
+                                @csrf
+                                @method('PUT')
+
+                                <button type="submit" 
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg transition-all shadow-sm
+                                    {{ $item->is_approved 
+                                        ? 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white' 
+                                        : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white' }}"
+                                    title="{{ $item->is_approved ? 'Đã hiển thị (Click để ẩn)' : 'Đang ẩn (Click để hiện)' }}">
+                                    
+                                    @if($item->is_approved)
+                                        <i class="fa-solid fa-eye"></i>
+                                    @else
+                                        <i class="fa-solid fa-eye-slash"></i>
+                                    @endif
+                                </button>
+                            </form>
 
                             {{-- Xóa --}}
                             <form method="POST"
