@@ -114,4 +114,15 @@ Route::prefix('admin')
         // B. Nhân sự (Admins & Staffs)
         Route::resource('users', AdminUserController::class)->names('users');
 
+
+        Route::controller(\App\Http\Controllers\Admin\SupplierController::class)->prefix('suppliers')->name('suppliers.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::get('/{id}/edit', 'edit')->name('edit');
+            Route::put('/{id}', 'update')->name('update');
+            Route::delete('/{id}', 'destroy')->name('destroy');
+        });
+        // Hoặc dùng ngắn gọn:
+        // Route::resource('suppliers', \App\Http\Controllers\Admin\SupplierController::class);
     });

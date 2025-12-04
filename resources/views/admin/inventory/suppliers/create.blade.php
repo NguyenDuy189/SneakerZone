@@ -1,0 +1,85 @@
+@extends('admin.layouts.app')
+@section('title', 'Thêm nhà cung cấp')
+
+@section('content')
+<div class="container px-6 mx-auto mb-20 fade-in">
+    
+    {{-- HEADER --}}
+    <div class="flex items-center gap-4 my-6">
+        <a href="{{ route('admin.suppliers.index') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <h2 class="text-2xl font-bold text-slate-800">Thêm nhà cung cấp mới</h2>
+    </div>
+
+    {{-- FORM --}}
+    <div class="max-w-3xl mx-auto">
+        <form action="{{ route('admin.suppliers.store') }}" method="POST" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+            @csrf
+            
+            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-building text-indigo-500"></i> Thông tin doanh nghiệp
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {{-- Mã NCC --}}
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1.5">Mã nhà cung cấp <span class="text-rose-500">*</span></label>
+                    <input type="text" name="code" value="{{ old('code') }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-mono uppercase placeholder:normal-case focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm" placeholder="VD: SUP-NIKE">
+                    @error('code') <p class="text-xs text-rose-500 mt-1 font-medium">{{ $message }}</p> @enderror
+                </div>
+
+                {{-- Tên NCC --}}
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1.5">Tên nhà cung cấp <span class="text-rose-500">*</span></label>
+                    <input type="text" name="name" value="{{ old('name') }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm" placeholder="Công ty TNHH ABC...">
+                    @error('name') <p class="text-xs text-rose-500 mt-1 font-medium">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div class="border-t border-slate-100 my-6"></div>
+
+            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-address-book text-emerald-500"></i> Thông tin liên hệ
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {{-- Người liên hệ --}}
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-slate-700 mb-1.5">Người đại diện / Liên hệ</label>
+                    <input type="text" name="contact_name" value="{{ old('contact_name') }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm" placeholder="Anh A / Chị B">
+                </div>
+
+                {{-- Email --}}
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1.5">Email</label>
+                    <input type="email" name="email" value="{{ old('email') }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm" placeholder="contact@supplier.com">
+                    @error('email') <p class="text-xs text-rose-500 mt-1 font-medium">{{ $message }}</p> @enderror
+                </div>
+
+                {{-- Phone --}}
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1.5">Số điện thoại</label>
+                    <input type="text" name="phone" value="{{ old('phone') }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm" placeholder="09xxxxxxxx">
+                    @error('phone') <p class="text-xs text-rose-500 mt-1 font-medium">{{ $message }}</p> @enderror
+                </div>
+
+                {{-- Địa chỉ --}}
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-slate-700 mb-1.5">Địa chỉ kho / Văn phòng</label>
+                    <textarea name="address" rows="3" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm" placeholder="Số nhà, đường, quận/huyện...">{{ old('address') }}</textarea>
+                </div>
+            </div>
+
+            <div class="pt-4 flex gap-4">
+                <button type="submit" class="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg shadow-slate-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Lưu nhà cung cấp
+                </button>
+                <a href="{{ route('admin.suppliers.index') }}" class="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                    Hủy
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
