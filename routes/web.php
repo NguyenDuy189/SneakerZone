@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\HomeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,6 +26,8 @@ use App\Http\Controllers\Admin\ReviewController;
 Route::get('/', function () {
     return redirect()->route('admin.dashboard');
 })->name('home');
+
+Route::get('/category/{slug}', [HomeController::class, 'category'])->name('category.products');
 
 // -------------------------------------------------------------------------
 // ADMIN AREA
