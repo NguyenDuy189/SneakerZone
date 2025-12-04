@@ -118,7 +118,7 @@
                         Bán hàng
                     </div>
                     
-                    <a href="#" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors relative">
+                    <a href="{{ route('admin.orders.index') }}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors relative">
                         <i class="fa-solid fa-cart-shopping w-6 h-6 flex items-center justify-center"></i>
                         <span x-show="sidebarOpen" class="ml-3 truncate">Đơn hàng</span>
                         <span x-show="sidebarOpen" class="ml-auto bg-red-500 text-white py-0.5 px-2 rounded-full text-xs">5</span>
