@@ -2,10 +2,18 @@
 
 use Illuminate\Support\Facades\Route;
 
-// 1. IMPORT MIDDLEWARE (QUAN TRỌNG ĐỂ FIX LỖI)
+/*
+|--------------------------------------------------------------------------
+| IMPORT MIDDLEWARES
+|--------------------------------------------------------------------------
+*/
 use App\Http\Middleware\CheckRole;
 
-// 2. IMPORT CONTROLLERS
+/*
+|--------------------------------------------------------------------------
+| IMPORT CONTROLLERS
+|--------------------------------------------------------------------------
+*/
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrderController;
@@ -22,17 +30,18 @@ use App\Http\Controllers\Admin\CustomerUserController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\FlashSaleController;
+use App\Http\Controllers\Admin\SettingController;
 
 /*
 |--------------------------------------------------------------------------
-| HOME REDIRECT
+| GLOBAL REDIRECT
 |--------------------------------------------------------------------------
 */
 Route::get('/', fn() => redirect()->route('admin.dashboard'))->name('home');
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN AUTHENTICATION (GUEST)
+| GUEST ROUTES (LOGIN/LOGOUT)
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -43,39 +52,38 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN PANEL (PROTECTED)
+| PROTECTED ADMIN ROUTES
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')
     ->name('admin.')
-    // Middleware: Đăng nhập + Check Role (Admin hoặc Staff)
-    ->middleware(['auth', CheckRole::class . ':admin,staff']) 
+    ->middleware(['auth', CheckRole::class . ':admin,staff']) // Áp dụng middleware kiểm tra quyền
     ->group(function () {
 
         // =================================================================
-        // DASHBOARD
+        // 1. DASHBOARD
         // =================================================================
         Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // =================================================================
-        // QUẢN LÝ ĐƠN HÀNG (ORDERS)
+        // 2. ORDER MANAGEMENT
         // =================================================================
-        Route::prefix('orders')->name('orders.')->controller(OrderController::class)->group(function () {
+        Route::controller(OrderController::class)->prefix('orders')->name('orders.')->group(function () {
             Route::get('{id}/print', 'print')->name('print');
             Route::put('{id}/status', 'updateStatus')->name('update_status');
         });
         Route::resource('orders', OrderController::class)->only(['index', 'show']);
 
         // =================================================================
-        // QUẢN LÝ SẢN PHẨM (PRODUCTS)
+        // 3. PRODUCT MANAGEMENT
         // =================================================================
-        Route::prefix('products')->name('products.')->controller(ProductController::class)->group(function () {
-            // Thùng rác & Khôi phục
+        Route::controller(ProductController::class)->prefix('products')->name('products.')->group(function () {
+            // Trash & Restore
             Route::get('trash', 'trash')->name('trash');
             Route::post('{id}/restore', 'restore')->name('restore');
             Route::delete('{id}/force-delete', 'forceDelete')->name('force_delete');
 
-            // Biến thể (Variants)
+            // Product Variants
             Route::post('{id}/variants', 'storeVariant')->name('variants.store');
             Route::put('variants/{variant_id}', 'updateVariant')->name('variants.update');
             Route::delete('variants/{variant_id}', 'destroyVariant')->name('variants.destroy');
@@ -83,41 +91,57 @@ Route::prefix('admin')
         Route::resource('products', ProductController::class);
 
         // =================================================================
-        // DANH MỤC & THƯƠNG HIỆU
+        // 4. CATEGORIES & BRANDS & ATTRIBUTES
         // =================================================================
         Route::resource('categories', CategoryController::class);
         Route::resource('brands', BrandController::class);
 
-        // =================================================================
-        // THUỘC TÍNH (ATTRIBUTES)
-        // =================================================================
-        Route::prefix('attributes')->name('attributes.')->controller(AttributeController::class)->group(function () {
+        Route::controller(AttributeController::class)->prefix('attributes')->name('attributes.')->group(function () {
             Route::post('{id}/values', 'storeValue')->name('values.store');
             Route::delete('values/{id}', 'destroyValue')->name('values.destroy');
         });
         Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']);
 
         // =================================================================
-        // ĐÁNH GIÁ (REVIEWS)
+        // 5. MARKETING (DISCOUNTS & FLASH SALES)
         // =================================================================
-        Route::prefix('reviews')->name('reviews.')->controller(ReviewController::class)->group(function () {
+        
+        // --- Discounts ---
+        Route::resource('discounts', DiscountController::class)->except(['show']);
+
+        // --- Flash Sales (Complex Logic) ---
+        // A. AJAX Search (Must be BEFORE resource to avoid conflict with {id})
+        Route::get('flash-sales/search-products', [FlashSaleController::class, 'searchProductVariants'])
+            ->name('flash_sales.product_search');
+
+        // B. Items & Statistics Management
+        Route::controller(FlashSaleController::class)->prefix('flash-sales/{flash_sale}')->name('flash_sales.')->group(function() {
+            Route::get('items', 'items')->name('items');
+            Route::post('items', 'addItem')->name('items.store');
+            Route::put('items/{item}', 'updateItem')->name('items.update');
+            Route::delete('items/{item}', 'removeItem')->name('items.destroy');
+            Route::get('statistics', 'statistics')->name('statistics');
+        });
+
+        // C. UX Redirect (View -> Items)
+        Route::get('flash-sales/{flash_sale}', fn($id) => redirect()->route('admin.flash_sales.items', $id))
+            ->name('flash_sales.show');
+
+        // D. Main Resource
+        Route::resource('flash-sales', FlashSaleController::class)
+            ->names('flash_sales') // Force route names to use underscore (admin.flash_sales.index)
+            ->except(['show']);
+
+        // =================================================================
+        // 6. CUSTOMER & REVIEWS
+        // =================================================================
+        Route::controller(ReviewController::class)->prefix('reviews')->name('reviews.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::put('{id}/approve', 'approve')->name('approve');
             Route::delete('{id}', 'destroy')->name('destroy');
         });
 
-        // =================================================================
-        // MÃ GIẢM GIÁ (DISCOUNTS)
-        // =================================================================
-        Route::prefix('discounts')->name('discounts.')->controller(DiscountController::class)->group(function () {
-            // Các route custom nếu có
-        });
-        Route::resource('discounts', DiscountController::class)->except(['show']);
-
-        // =================================================================
-        // QUẢN LÝ KHÁCH HÀNG (CUSTOMERS)
-        // =================================================================
-        Route::prefix('customers')->name('customers.')->controller(CustomerUserController::class)->group(function () {
+        Route::controller(CustomerUserController::class)->prefix('customers')->name('customers.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
@@ -129,16 +153,11 @@ Route::prefix('admin')
         });
 
         // =================================================================
-        // QUẢN TRỊ VIÊN (ADMIN USERS)
-        // =================================================================
-        Route::resource('users', AdminUserController::class)->names('users');
-
-        // =================================================================
-        // KHO & NHẬP HÀNG (INVENTORY)
+        // 7. INVENTORY & SUPPLIERS
         // =================================================================
         Route::resource('suppliers', SupplierController::class);
-        
-        Route::prefix('purchase-orders')->name('purchase_orders.')->controller(PurchaseOrderController::class)->group(function () {
+
+        Route::controller(PurchaseOrderController::class)->prefix('purchase-orders')->name('purchase_orders.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
@@ -146,64 +165,38 @@ Route::prefix('admin')
             Route::put('{id}/status', 'updateStatus')->name('update_status');
         });
 
-        Route::prefix('inventory/logs')->name('inventory.logs.')->controller(InventoryLogController::class)->group(function () {
-            Route::get('/', 'index')->name('index');
-        });
+        Route::get('inventory/logs', [InventoryLogController::class, 'index'])->name('inventory.logs.index');
 
         // =================================================================
-        // VẬN CHUYỂN (SHIPPING)
+        // 8. SHIPPING MANAGEMENT
         // =================================================================
-        Route::prefix('shipping')->name('shipping.')->controller(ShippingController::class)->group(function () {
+        Route::controller(ShippingController::class)->prefix('shipping')->name('shipping.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('create', 'create')->name('create');
             Route::post('store', 'store')->name('store');
-            Route::get('{shipping}/show', 'show')->name('show');
-            
-            // Thùng rác & Khôi phục
             Route::get('trash', 'trash')->name('trash');
-            Route::post('{shipping}/restore', 'restore')->name('restore');
-            Route::delete('{shipping}/destroy', 'destroy')->name('destroy'); // Xóa vĩnh viễn
             
-            // Giao vận đơn & Trạng thái
-            Route::get('{shipping}/assign', 'assignForm')->name('assign');
-            Route::post('{shipping}/assign', 'assign')->name('assign.submit');
-            Route::put('{shipping}/status', 'updateStatus')->name('update_status');
+            // Routes with ID parameter
+            Route::prefix('{shipping}')->group(function() {
+                Route::get('show', 'show')->name('show');
+                Route::post('restore', 'restore')->name('restore');
+                Route::delete('destroy', 'destroy')->name('destroy');
+                
+                Route::get('assign', 'assignForm')->name('assign');
+                Route::post('assign', 'assign')->name('assign.submit');
+                Route::put('status', 'updateStatus')->name('update_status');
+            });
         });
 
         // =================================================================
-        // QUẢN LÝ FLASH SALE (FULL)
+        // 9. SYSTEM ADMINISTRATION (Users & Settings)
         // =================================================================
-        
-        // 1. Route Tìm kiếm Ajax (QUAN TRỌNG: Phải đặt trên cùng)
-        // Gọi bằng: route('admin.flash_sales.product_search')
-        Route::get('flash-sales/search-products', [FlashSaleController::class, 'searchProductVariants'])
-            ->name('flash_sales.product_search');
+        Route::resource('users', AdminUserController::class)->names('users');
 
-        // 2. Các chức năng con (Sản phẩm, Thống kê)
-        Route::prefix('flash-sales/{flash_sale}')->group(function() {
-            Route::get('items', [FlashSaleController::class, 'items'])->name('flash_sales.items');
-            Route::post('items', [FlashSaleController::class, 'addItem'])->name('flash_sales.items.store');
-            Route::put('items/{item}', [FlashSaleController::class, 'updateItem'])->name('flash_sales.items.update');
-            Route::delete('items/{item}', [FlashSaleController::class, 'removeItem'])->name('flash_sales.items.destroy');
-            Route::get('statistics', [FlashSaleController::class, 'statistics'])->name('flash_sales.statistics');
+        Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('edit', 'edit')->name('edit');
+            Route::post('update', 'update')->name('update');
         });
 
-        // 3. CRUD Chính cho Chiến dịch
-        Route::resource('flash-sales', FlashSaleController::class)
-            ->names([
-                'index'   => 'flash_sales.index',
-                'create'  => 'flash_sales.create',
-                'store'   => 'flash_sales.store',
-                'edit'    => 'flash_sales.edit',
-                'update'  => 'flash_sales.update',
-                'destroy' => 'flash_sales.destroy',
-            ])
-            ->parameters(['flash-sales' => 'flash_sale'])
-            ->except(['show']);
-
-        // 4. Redirect UX (Show -> Items)
-        Route::get('flash-sales/{flash_sale}', function ($flash_sale) {
-            return redirect()->route('admin.flash_sales.items', $flash_sale);
-        })->name('flash_sales.show');
-
-    }); // Kết thúc Group Admin Panel
+    }); // End Admin Routes Group
