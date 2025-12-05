@@ -6,9 +6,11 @@
     
     <div class="flex flex-col md:flex-row justify-between items-center my-6 gap-4">
         <div>
-            <a href="{{ route('admin.flash_sales.index') }}" class="text-gray-500 hover:text-indigo-600 text-sm mb-2 inline-block">
-                <i class="fa-solid fa-arrow-left"></i> Quay lại danh sách
+            <a href="{{ route('admin.flash_sales.index') }}" class="group w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-indigo-300 transition-all duration-200">
+                <i class="fa-solid fa-arrow-left text-xl text-gray-500 group-hover:text-indigo-600"></i>
             </a>
+            <span class="text-gray-300">|</span>
+                    <span class="text-sm text-gray-500 uppercase tracking-wide">Quản lý khuyến mãi</span>
             <h2 class="text-2xl font-bold text-gray-800">
                 Báo cáo hiệu quả: <span class="text-indigo-600">{{ $flashSale->name }}</span>
             </h2>

@@ -9,6 +9,8 @@ class FlashSaleItem extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'flash_sale_id',
         'product_variant_id',
