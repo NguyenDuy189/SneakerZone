@@ -6,22 +6,32 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ProductVariant;
+use App\Events\OrderStatusUpdated; // Event Realtime
+use App\Models\OrderHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Exception;
 
 class OrderController extends Controller
 {
-    // Nhóm trạng thái "Giữ hàng" (Đã trừ tồn kho)
-    const STATUS_RESERVED = ['pending', 'processing', 'shipping', 'completed'];
-    
-    // Nhóm trạng thái "Nhả hàng" (Trả lại tồn kho)
-    const STATUS_RELEASED = ['cancelled', 'returned'];
+    // =========================================================================
+    // CẤU HÌNH LUỒNG TRẠNG THÁI (STATE MACHINE)
+    // =========================================================================
+    // Key: Trạng thái HIỆN TẠI
+    // Value: Danh sách các trạng thái ĐƯỢC PHÉP chuyển tới
+    const TRANSITIONS = [
+        'pending'    => ['processing', 'cancelled'],       // Chờ xử lý -> Đóng gói HOẶC Hủy
+        'processing' => ['shipping', 'cancelled'],         // Đóng gói -> Giao hàng HOẶC Hủy
+        'shipping'   => ['completed', 'returned'],         // Đang giao -> Hoàn thành HOẶC Trả hàng
+        'completed'  => [],                                // Hoàn thành -> KHÓA (Kết thúc vòng đời)
+        'cancelled'  => [],                                // Hủy -> KHÓA (Kết thúc vòng đời)
+        'returned'   => [],                                // Trả hàng -> KHÓA (Kết thúc vòng đời)
+    ];
 
     /**
      * Danh sách đơn hàng
@@ -104,7 +114,7 @@ class OrderController extends Controller
 
             // 2. Xử lý từng item
             foreach ($items as $itemData) {
-                // [LOCKING] Khóa dòng dữ liệu (Pessimistic Locking)
+                // [LOCKING] Khóa dòng dữ liệu (Pessimistic Locking) để tránh bán quá số lượng tồn
                 $variant = ProductVariant::with('product')
                     ->where('id', $itemData['variant_id'])
                     ->lockForUpdate()
@@ -124,11 +134,11 @@ class OrderController extends Controller
                     throw new Exception("Sản phẩm '{$variant->product->name}' không đủ hàng (Còn: {$variant->stock_quantity}).");
                 }
 
-                // [SNAPSHOT] Lấy giá tại thời điểm mua
+                // [SNAPSHOT] Lấy giá tại thời điểm mua (Tránh việc admin sửa giá sau này làm sai lệch đơn cũ)
                 $price = $variant->sale_price > 0 ? $variant->sale_price : $variant->original_price;
                 $lineTotal = $price * $itemData['quantity'];
 
-                // Tạo OrderItem (Lưu cứng thông tin)
+                // Tạo OrderItem
                 OrderItem::create([
                     'order_id'           => $order->id,
                     'product_id'         => $variant->product_id,
@@ -138,7 +148,6 @@ class OrderController extends Controller
                     'quantity'           => $itemData['quantity'],
                     'price'              => $price,                  // Snapshot giá
                     'total'              => $lineTotal,
-                    // Giả sử có size/color
                     'size'               => $variant->size ?? null,
                     'color'              => $variant->color ?? null,
                 ]);
@@ -163,105 +172,120 @@ class OrderController extends Controller
     }
 
     /**
-     * CẬP NHẬT TRẠNG THÁI (STATE MACHINE)
-     * Bảo vệ: Logic thanh toán, Logic hoàn kho
+     * CẬP NHẬT TRẠNG THÁI (STRICT MODE & REALTIME)
+     * Đảm bảo: Không đi lùi, tự động hoàn kho, thông báo realtime
      */
     public function updateStatus(Request $request, $id)
     {
         $order = Order::with('items')->findOrFail($id);
+        
+        $currentStatus  = $order->status;
+        $currentPayment = $order->payment_status;
 
-        $request->validate([
-            'status'         => ['required', Rule::in(array_merge(self::STATUS_RESERVED, self::STATUS_RELEASED))],
+        // 1. Validate Input
+        $validator = Validator::make($request->all(), [
+            'status'         => ['required', Rule::in(array_keys(self::TRANSITIONS))],
             'payment_status' => ['required', Rule::in(['unpaid', 'paid', 'refunded'])],
         ]);
 
-        $currentStatus  = $order->status;
-        $newStatus      = $request->status;
-        $currentPayment = $order->payment_status;
-        $newPayment     = $request->payment_status;
+        if ($validator->fails()) return back()->withErrors($validator)->withInput();
 
-        // --- 1. VALIDATION LAYER (LOGIC NGHIỆP VỤ) ---
-        // Để hiểu rõ hơn về luồng chuyển đổi trạng thái bên dưới, hãy xem sơ đồ sau:
-        // 
+        $newStatus  = $request->status;
+        $newPayment = $request->payment_status;
 
-        // RULE 1: Không được phép quay lui từ "Paid" về "Unpaid"
+        // 2. Validate Business Logic (Chặn đi lùi)
+        if ($newStatus !== $currentStatus) {
+            $allowedStates = self::TRANSITIONS[$currentStatus] ?? [];
+            if (!in_array($newStatus, $allowedStates)) {
+                return back()->with('error', "Không thể chuyển từ '{$this->getStatusName($currentStatus)}' sang '{$this->getStatusName($newStatus)}'.");
+            }
+        }
+        
+        // Validate Payment Logic
         if ($currentPayment === 'paid' && $newPayment === 'unpaid') {
-            return back()->with('error', 'Lỗi bảo mật: Đơn hàng ĐÃ THANH TOÁN không được phép chuyển về chưa thanh toán!');
+            return back()->with('error', 'Không thể hủy trạng thái "Đã thanh toán".');
         }
-
-        // RULE 2: Muốn "Completed" thì bắt buộc phải "Paid"
         if ($newStatus === 'completed' && $newPayment !== 'paid') {
-            return back()->with('error', 'Lỗi logic: Đơn hàng phải THANH TOÁN xong mới được phép Hoàn thành.');
-        }
-
-        // RULE 3: "Refunded" chỉ dành cho đơn Hủy/Trả hàng
-        if ($newPayment === 'refunded' && !in_array($newStatus, self::STATUS_RELEASED)) {
-            return back()->with('error', 'Lỗi logic: Chỉ được hoàn tiền khi đơn hàng bị Hủy hoặc Trả hàng.');
-        }
-
-        // RULE 4: Đơn đã kết thúc (Completed/Returned) không nên bị sửa đổi trạng thái (trừ khi Admin cố tình can thiệp Hủy)
-        if (in_array($currentStatus, ['completed', 'returned']) && $newStatus !== $currentStatus) {
-            // Tùy chính sách, ở đây mình chặn luôn cho an toàn
-            return back()->with('error', "Đơn hàng đã kết thúc ($currentStatus). Không thể thay đổi trạng thái.");
+            return back()->with('error', 'Đơn hàng phải thanh toán xong mới được hoàn thành.');
         }
 
         DB::beginTransaction();
         try {
-            // --- 2. INVENTORY LAYER (XỬ LÝ KHO) ---
+            // 3. Xử lý Kho (Inventory)
+            $reservedStates = ['pending', 'processing', 'shipping'];
+            $releasedStates = ['cancelled', 'returned'];
             
-            $stockAction = 'none'; // 'restock' (trả kho), 'deduct' (trừ kho), 'none'
+            $isFromReserved = in_array($currentStatus, $reservedStates);
+            $isToReleased   = in_array($newStatus, $releasedStates);
 
-            $isCurrentReserved = in_array($currentStatus, self::STATUS_RESERVED);
-            $isNewReserved     = in_array($newStatus, self::STATUS_RESERVED);
-
-            // Logic xác định hành động kho
-            if ($isCurrentReserved && !$isNewReserved) {
-                // Đang giữ hàng -> Hủy/Trả => TRẢ LẠI KHO
-                $stockAction = 'restock';
-            } elseif (!$isCurrentReserved && $isNewReserved) {
-                // Đã hủy -> Khôi phục lại (Pending/Processing) => TRỪ KHO LẠI
-                $stockAction = 'deduct';
-            }
-
-            // Thực thi hành động kho
-            if ($stockAction === 'restock') {
+            // Nếu Hủy/Trả hàng -> Cộng lại kho
+            if ($newStatus !== $currentStatus && $isFromReserved && $isToReleased) {
                 foreach ($order->items as $item) {
                     ProductVariant::where('id', $item->product_variant_id)
                         ->increment('stock_quantity', $item->quantity);
                 }
-            } elseif ($stockAction === 'deduct') {
-                // Check đủ hàng trước khi trừ
-                foreach ($order->items as $item) {
-                    // Dùng lockForUpdate để đảm bảo số lượng chính xác lúc check
-                    $variant = ProductVariant::lockForUpdate()->find($item->product_variant_id);
-                    
-                    if (!$variant || $variant->stock_quantity < $item->quantity) {
-                        throw new Exception("Không thể khôi phục đơn: Sản phẩm '{$item->product_name}' hiện không đủ hàng.");
-                    }
-                }
-                // Trừ hàng
-                foreach ($order->items as $item) {
-                    ProductVariant::where('id', $item->product_variant_id)
-                        ->decrement('stock_quantity', $item->quantity);
+            }
+
+            // 4. Update Order
+            $order->update([
+                'status'         => $newStatus,
+                'payment_status' => $newPayment,
+                'updated_at'     => now()
+            ]);
+
+            // 5. [MỚI] Ghi Lịch Sử (OrderHistory)
+            $historyDescription = [];
+            if ($currentStatus !== $newStatus) {
+                $historyDescription[] = "Trạng thái: " . $this->getStatusName($currentStatus) . " ➔ " . $this->getStatusName($newStatus);
+            }
+            if ($currentPayment !== $newPayment) {
+                $historyDescription[] = "Thanh toán: $currentPayment ➔ $newPayment";
+            }
+
+            $history = null;
+            if (!empty($historyDescription)) {
+                $history = OrderHistory::create([
+                    'order_id'    => $order->id,
+                    'user_id'     => Auth::id(),
+                    'action'      => 'Cập nhật đơn hàng',
+                    'description' => implode('. ', $historyDescription),
+                ]);
+            }
+
+            DB::commit();
+
+            // 6. Realtime Broadcast
+            if ($history) {
+                // Lưu ý: Cần sửa Event để nhận thêm $history (xem Bước 3 bên dưới)
+                try {
+                    event(new OrderStatusUpdated($order, $history));
+                } catch (Exception $e) {
+                    Log::error("Pusher Error: " . $e->getMessage());
                 }
             }
 
-            // --- 3. SAVE DATA ---
-            $order->update([
-                'status'         => $newStatus,
-                'payment_status' => $newPayment
-            ]);
-
-            DB::commit();
-            
-            Log::info("Order #{$order->order_code} updated: Status [$currentStatus -> $newStatus], Payment [$currentPayment -> $newPayment]");
-
-            return back()->with('success', 'Cập nhật trạng thái thành công!');
+            return back()->with('success', 'Cập nhật thành công!');
 
         } catch (Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Lỗi hệ thống: ' . $e->getMessage());
+            return back()->with('error', 'Lỗi: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Helper: Chuyển mã trạng thái sang tiếng Việt dễ đọc
+     */
+    private function getStatusName($status)
+    {
+        return match($status) {
+            'pending'    => 'Chờ xử lý',
+            'processing' => 'Đang đóng gói',
+            'shipping'   => 'Đang giao hàng',
+            'completed'  => 'Hoàn thành',
+            'cancelled'  => 'Đã hủy',
+            'returned'   => 'Trả hàng/Hoàn về',
+            default      => $status,
+        };
     }
 
     public function show($id)

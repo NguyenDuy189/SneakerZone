@@ -38,8 +38,8 @@
             </div>
             
             <div class="text-slate-500 text-xs leading-relaxed">
-                <p>123 Đường Nguyễn Huệ, Quận 1</p>
-                <p>Thành phố Hồ Chí Minh, Việt Nam</p>
+                <p>Tòa P, Trường Cao đẳng FPT PolyTechnic, Phan Tây Nhạc, Nam Từ Liêm, Hà Nội</p>
+                <p>Thành phố Hà Nội, Việt Nam</p>
                 <p>support@sneakerzone.vn</p>
                 <p>(+84) 1900 1234</p>
             </div>

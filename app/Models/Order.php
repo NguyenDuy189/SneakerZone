@@ -124,4 +124,15 @@ class Order extends Model
     {
         return $this->hasOne(ShippingOrder::class);
     }
+    // ... các khai báo fillable, casts cũ của bạn giữ nguyên ...
+    protected $guarded = []; // Hoặc $fillable = [...]
+
+    // --- THÊM ĐOẠN NÀY ---
+    /**
+     * Quan hệ 1-nhiều với bảng lịch sử đơn hàng
+     */
+    public function histories()
+    {
+        return $this->hasMany(OrderHistory::class)->orderBy('created_at', 'desc');
+    }
 }
