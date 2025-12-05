@@ -3,12 +3,14 @@
 
 @section('content')
 <div class="container px-6 mx-auto grid">
-    <div class="flex flex-col md:flex-row justify-between items-center my-6 gap-4">
-        <h2 class="text-2xl font-semibold text-gray-700">Chỉnh sửa chiến dịch</h2>
-        <a href="{{ route('admin.flash_sales.index') }}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-            <i class="fa-solid fa-arrow-left mr-2"></i> Quay lại
+    <div class="flex flex-col md:flex-row items-center my-6 gap-4">
+        <a href="{{ route('admin.flash_sales.index') }}" class="group w-12 h-12 flex items-center justify-center bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-indigo-300 transition-all duration-200">
+            <i class="fa-solid fa-arrow-left text-xl text-gray-500 group-hover:text-indigo-600"></i>
         </a>
+        <span class="text-gray-300">|</span>
+                <span class="text-sm text-gray-500 uppercase tracking-wide">Quản lý khuyến mãi</span>
     </div>
+    <h3 class="text-2xl font-semibold text-gray-700">Chỉnh sửa chiến dịch</h3>
 
     @if($flashSale->is_running)
     <div class="p-4 mb-4 text-sm text-amber-700 bg-amber-50 rounded-lg border border-amber-200 flex items-center">

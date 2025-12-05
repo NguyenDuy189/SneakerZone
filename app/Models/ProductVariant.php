@@ -9,35 +9,66 @@ class ProductVariant extends Model
 {
     use HasFactory;
 
-    // Đảm bảo fillable khớp với DB của bạn
     protected $fillable = [
         'product_id', 'sku', 'price', 'stock_quantity', 'image'
     ];
 
+    protected $casts = [
+        'price' => 'float',
+        'stock_quantity' => 'integer',
+    ];
+
+    // =============================
+    // RELATION
+    // =============================
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
 
-    /**
-     * ACCESSOR: Tự động lấy giá gốc chuẩn
-     * Logic: Nếu giá variant > 0 thì lấy, nếu không thì lấy giá product cha
-     * Gọi bằng: $variant->original_price_display
-     */
-    public function getOriginalPriceDisplayAttribute()
+    // =============================
+    // ACCESSOR: Giá gốc chuẩn
+    // =============================
+    public function getOriginalPriceDisplayAttribute(): float
     {
-        // 1. Kiểm tra giá riêng của biến thể
-        if (!empty($this->price) && $this->price > 0) {
-            return $this->price;
+        // Nếu giá variant > 0 thì lấy
+        if ($this->original_price > 0) {
+            return round($this->original_price, 2);
         }
 
-        // 2. Nếu biến thể giá = 0, fallback về giá sản phẩm cha
-        // Lưu ý: Đảm bảo đã eager load 'product' để tránh query n+1
+        // Nếu fallback từ product cha (giả sử product có cột price)
         if ($this->relationLoaded('product') && $this->product) {
-            return $this->product->price ?? 0;
+            return round($this->product->price ?? 0, 2);
         }
 
-        // 3. Trường hợp chưa load relation, query nhẹ để lấy (phòng hờ)
-        return $this->product->price ?? 0;
+        // Nếu chưa load relation
+        return round($this->product()->value('price') ?? 0, 2);
+    }
+
+    // =============================
+    // ACCESSOR: Giá hiển thị dưới dạng string có format VNĐ
+    // =============================
+    public function getOriginalPriceFormattedAttribute(): string
+    {
+        return number_format($this->original_price_display, 0, ',', '.') . '₫';
+    }
+
+    // =============================
+    // CHECK STOCK
+    // =============================
+    public function isInStock(int $quantity = 1): bool
+    {
+        return $this->stock_quantity >= $quantity;
+    }
+
+    // =============================
+    // HELPER: Giá hợp lệ cho Flash Sale
+    // =============================
+    public function getValidFlashSalePrice(float $flashSalePrice): float
+    {
+        // Giá Flash Sale phải nhỏ hơn giá gốc
+        return $flashSalePrice >= $this->original_price_display
+            ? $this->original_price_display * 0.95 // tự giảm 5% nếu nhập sai
+            : $flashSalePrice;
     }
 }
