@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Log;
 use App\Events\ShippingStatusUpdated;
 use Illuminate\Support\Facades\Auth;
 
-
 class ShippingController extends Controller
 {
     /**
@@ -22,16 +21,17 @@ class ShippingController extends Controller
      */
     public function index(Request $request)
     {
-        $query = ShippingOrder::with(['order.customer', 'order.items', 'shipper'])
-            ->latest();
+        $query = ShippingOrder::with(['order.customer', 'shipper'])->latest();
 
+        // Filter theo trạng thái nếu có
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        $list = $query->paginate(20);
+        // Pagination chuẩn
+        $shippings = $query->paginate(20);
 
-        return view('admin.shipping.index', compact('list'));
+        return view('admin.shipping.index', compact('shippings'));
     }
 
     /**
@@ -40,7 +40,10 @@ class ShippingController extends Controller
     public function assignForm(int $orderId)
     {
         $order = Order::with('customer')->findOrFail($orderId);
-        $shippers = User::where('role', 'shipper')->get();
+
+        $shippers = User::where('role', 'shipper')
+                        ->orderBy('full_name')
+                        ->get();
 
         return view('admin.shipping.assign', compact('order', 'shippers'));
     }
@@ -53,11 +56,15 @@ class ShippingController extends Controller
         $request->validate([
             'shipper_id' => ['required', 'exists:users,id'],
             'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:today'],
+        ], [
+            'shipper_id.required' => 'Vui lòng chọn shipper.',
+            'shipper_id.exists' => 'Shipper không tồn tại.',
+            'expected_delivery_date.date' => 'Ngày dự kiến không hợp lệ.',
+            'expected_delivery_date.after_or_equal' => 'Ngày dự kiến phải từ hôm nay trở đi.',
         ]);
 
         $order = Order::findOrFail($orderId);
 
-        // Kiểm tra shipper có đúng role
         $shipper = User::where('id', $request->shipper_id)
                         ->where('role', 'shipper')
                         ->firstOrFail();
@@ -65,7 +72,7 @@ class ShippingController extends Controller
         try {
             DB::beginTransaction();
 
-            // Tạo tracking code duy nhất
+            // Sinh tracking code duy nhất
             do {
                 $trackingCode = 'TRK-' . now()->format('ymd') . '-' . strtoupper(Str::random(6));
             } while (ShippingOrder::where('tracking_code', $trackingCode)->exists());
@@ -74,7 +81,7 @@ class ShippingController extends Controller
                 'order_id' => $order->id,
                 'shipper_id' => $shipper->id,
                 'status' => ShippingOrder::STATUS_ASSIGNED,
-                'expected_delivery_date' => $request->expected_delivery_date ?? null,
+                'expected_delivery_date' => $request->expected_delivery_date,
                 'tracking_code' => $trackingCode,
             ]);
 
@@ -82,37 +89,42 @@ class ShippingController extends Controller
             ShippingLog::create([
                 'shipping_order_id' => $shipping->id,
                 'status' => $shipping->status,
-                'description' => 'Gán shipper #' . $shipper->id,
-                'user_id' => optional(Auth::user())->id,
+                'description' => 'Shipper được gán: #' . $shipper->id,
+                'user_id' => Auth::id(),
             ]);
 
             // Event realtime
-            event(new ShippingStatusUpdated($shipping));
+            event(new ShippingStatusUpdated($shipping->load('shipper')));
 
             DB::commit();
 
             return redirect()->route('admin.shipping.show', $shipping->id)
-                ->with('success', 'Đã gán shipper thành công.');
+                             ->with('success', 'Gán shipper thành công.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Assign shipping failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('Gán shipper thất bại: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->withErrors('Có lỗi xảy ra khi gán shipper. Vui lòng thử lại.');
         }
     }
 
     /**
-     * Cập nhật trạng thái
+     * Cập nhật trạng thái shipping
      */
-    public function updateStatus(Request $request, int $id)
+    public function updateStatus(Request $request, int $shippingId)
     {
         $request->validate([
             'status' => ['required', 'in:pending,assigned,picking,delivering,delivered,failed,returned'],
             'location' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
+        ], [
+            'status.required' => 'Vui lòng chọn trạng thái.',
+            'status.in' => 'Trạng thái không hợp lệ.',
+            'location.max' => 'Vị trí không được vượt quá 255 ký tự.',
+            'note.max' => 'Ghi chú không được vượt quá 500 ký tự.',
         ]);
 
-        $shipping = ShippingOrder::findOrFail($id);
+        $shipping = ShippingOrder::findOrFail($shippingId);
 
         try {
             DB::beginTransaction();
@@ -128,10 +140,11 @@ class ShippingController extends Controller
                 'status' => $request->status,
                 'description' => $request->note,
                 'location' => $request->location,
-                'user_id' => optional(Auth::user())->id,
+                'user_id' => Auth::id(),
             ]);
 
-            event(new ShippingStatusUpdated($shipping));
+            // Event realtime
+            event(new ShippingStatusUpdated($shipping->load('shipper')));
 
             DB::commit();
 
@@ -139,19 +152,31 @@ class ShippingController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Update shipping status failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('Cập nhật trạng thái thất bại: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->withErrors('Có lỗi xảy ra khi cập nhật trạng thái. Vui lòng thử lại.');
         }
     }
 
     /**
-     * Hiển thị chi tiết đơn giao hàng + realtime view
+     * Hiển thị chi tiết đơn giao hàng + realtime
      */
     public function show(int $id)
     {
         $shipping = ShippingOrder::with(['order.customer', 'order.items', 'shipper', 'logs.user'])
-            ->findOrFail($id);
+                                 ->findOrFail($id);
 
         return view('admin.shipping.show', compact('shipping'));
+    }
+
+    /**
+     * Thùng rác (soft delete)
+     */
+    public function trash()
+    {
+        $shippings = ShippingOrder::onlyTrashed()
+                                  ->with(['order.customer','shipper'])
+                                  ->paginate(20);
+
+        return view('admin.shipping.trash', compact('shippings'));
     }
 }

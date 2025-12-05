@@ -4,35 +4,40 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductVariant extends Model
 {
-    use HasFactory,SoftDeletes;
+    use HasFactory;
 
+    // Đảm bảo fillable khớp với DB của bạn
     protected $fillable = [
-        'product_id', 'sku', 'name', 'image_url', 
-        'original_price', 'sale_price', 'stock_quantity'
+        'product_id', 'sku', 'price', 'stock_quantity', 'image'
     ];
 
-    // Quan hệ: Thuộc về sản phẩm cha
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
 
-    // Quan hệ: Biến thể có nhiều giá trị thuộc tính (VD: Size 40, Màu Đỏ)
-    // Sử dụng bảng trung gian 'variant_attribute_values'
-    public function attributeValues()
+    /**
+     * ACCESSOR: Tự động lấy giá gốc chuẩn
+     * Logic: Nếu giá variant > 0 thì lấy, nếu không thì lấy giá product cha
+     * Gọi bằng: $variant->original_price_display
+     */
+    public function getOriginalPriceDisplayAttribute()
     {
-        return $this->belongsToMany(AttributeValue::class, 'variant_attribute_values', 'product_variant_id', 'attribute_value_id');
-    }
-    
-    // Helper lấy tên thuộc tính để hiển thị (VD: "Đỏ - 40")
-    public function getAttributeStringAttribute()
-    {
-        return $this->attributeValues->map(function($av) {
-            return $av->attribute->name . ': ' . $av->value;
-        })->implode(' / ');
+        // 1. Kiểm tra giá riêng của biến thể
+        if (!empty($this->price) && $this->price > 0) {
+            return $this->price;
+        }
+
+        // 2. Nếu biến thể giá = 0, fallback về giá sản phẩm cha
+        // Lưu ý: Đảm bảo đã eager load 'product' để tránh query n+1
+        if ($this->relationLoaded('product') && $this->product) {
+            return $this->product->price ?? 0;
+        }
+
+        // 3. Trường hợp chưa load relation, query nhẹ để lấy (phòng hờ)
+        return $this->product->price ?? 0;
     }
 }

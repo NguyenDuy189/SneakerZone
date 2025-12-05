@@ -21,6 +21,7 @@ return new class extends Migration
             $table->date('expected_delivery_date')->nullable();
             $table->text('note')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
