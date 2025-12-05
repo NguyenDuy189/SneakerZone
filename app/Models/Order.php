@@ -99,4 +99,29 @@ class Order extends Model
     {
         return $query->where('status', $status);
     }
+
+    /**
+     * Khách hàng đặt đơn
+     */
+    public function customer()
+    {
+        // Giả sử bảng users lưu khách hàng, khóa ngoại customer_id
+        return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    /**
+     * Shipper được gán (nếu có)
+     */
+    public function shipper()
+    {
+        return $this->belongsTo(User::class, 'shipper_id');
+    }
+
+    /**
+     * Liên quan đến Shipping
+     */
+    public function shipping()
+    {
+        return $this->hasOne(ShippingOrder::class);
+    }
 }

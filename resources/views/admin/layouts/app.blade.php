@@ -237,7 +237,7 @@
                             <div class="border-t border-slate-100 my-1"></div>
                             
                             {{-- LOGOUT FORM --}}
-                            <form method="POST" action="{{ route('logout') }}">
+                            <form method="POST" action="{{ route('admin.logout') }}">
                                 @csrf
                                 <button type="submit" class="w-full text-left flex items-center px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
                                     <i class="fa-solid fa-arrow-right-from-bracket mr-3 w-4"></i> Đăng xuất
