@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('flash_sales', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->timestamp('start_time');
-            $table->timestamp('end_time');
+            $table->timestamp('start_time')->nullable(); // Cho phép giá trị NULL
+            $table->timestamp('end_time')->nullable();   // Cho phép giá trị NULL
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

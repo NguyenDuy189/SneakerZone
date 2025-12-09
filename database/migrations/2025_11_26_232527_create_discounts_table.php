@@ -23,7 +23,6 @@ return new class extends Migration
             $table->integer('max_usage')->default(0);
             $table->integer('used_count')->default(0);
             $table->decimal('min_order_amount', 15, 2)->default(0);
-            $table->integer('max_discount_value')->nullable();
             $table->timestamp('start_date')->nullable();
             $table->timestamp('end_date')->nullable();
             $table->timestamps();

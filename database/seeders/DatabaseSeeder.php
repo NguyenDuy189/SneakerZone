@@ -31,7 +31,6 @@ class DatabaseSeeder extends Seeder
             DiscountSeeder::class,
             FlashSaleSeeder::class,
             OrderSeeder::class,
-            ShippingSeeder::class,
         ]);
     }
 }
