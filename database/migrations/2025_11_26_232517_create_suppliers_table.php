@@ -13,14 +13,11 @@ return new class extends Migration
     {
         Schema::create('suppliers', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique(); // Mới: Mã NCC (VD: SUP-NIKE)
             $table->string('name');
             $table->string('contact_name')->nullable();
-            $table->string('email')->nullable(); // Mới: Cần để liên hệ
             $table->string('phone')->nullable();
             $table->text('address')->nullable();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 
