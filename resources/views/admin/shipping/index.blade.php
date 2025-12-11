@@ -78,7 +78,14 @@
                     @forelse($shippings as $shipping)
                         <tr class="hover:bg-slate-50 transition-colors group" id="shipping-{{ $shipping->id }}">
                             <td class="px-4 py-3 font-mono text-slate-700">{{ $shipping->tracking_code }}</td>
-                            <td class="px-4 py-3">{{ $shipping->order->user?->full_name ?? '-' }}</td>
+                            <td class="px-4 py-3">
+                                @if($shipping->order->customer)
+                                    <span class="font-medium text-slate-700">{{ $shipping->order->customer->full_name }}</span>
+                                    <div class="text-xs text-slate-400">{{ $shipping->order->customer->phone }}</div>
+                                @else
+                                    <span class="text-slate-400">Chưa có khách hàng</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3">
                                 @if($shipping->shipper)
                                     <span class="font-medium text-indigo-600">{{ $shipping->shipper->full_name }}</span>

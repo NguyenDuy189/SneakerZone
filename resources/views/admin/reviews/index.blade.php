@@ -29,7 +29,7 @@
                 {{-- 2. Số sao (Rating) --}}
                 <div class="md:col-span-2">
                     <select name="rating" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
-                        <option value="">-- Số sao --</option>
+                        <option value=""> Số sao </option>
                         @for ($i = 5; $i >= 1; $i--)
                             <option value="{{ $i }}" {{ request('rating') == $i ? 'selected' : '' }}>
                                 {{ $i }} Sao
@@ -41,7 +41,7 @@
                 {{-- 3. Trạng thái (Status) --}}
                 <div class="md:col-span-2">
                     <select name="status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
-                        <option value="">-- Trạng thái --</option>
+                        <option value=""> Trạng thái </option>
                         <option value="1" {{ request('status') === '1' ? 'selected' : '' }}>Đã duyệt</option>
                         <option value="0" {{ request('status') === '0' ? 'selected' : '' }}>Chưa duyệt</option>
                     </select>

@@ -30,7 +30,7 @@
                 <div class="md:col-span-3">
                     <select name="type" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm 
                         focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
-                        <option value="">-- Tất cả giao dịch --</option>
+                        <option value=""> Tất cả giao dịch </option>
                         <option value="import" {{ request('type') == 'import' ? 'selected' : '' }}>⬇️ Nhập hàng (Import)</option>
                         <option value="sale" {{ request('type') == 'sale' ? 'selected' : '' }}>⬆️ Bán hàng (Sale)</option>
                         <option value="return" {{ request('type') == 'return' ? 'selected' : '' }}>↩️ Trả hàng (Return)</option>

@@ -150,19 +150,26 @@ class BrandController extends Controller
     {
         try {
             $brand = Brand::findOrFail($id);
-            
-            // Check ràng buộc: Không cho xóa nếu Brand đã có sản phẩm (Logic mở rộng)
-            // if ($brand->products()->exists()) { return back()->with('error', 'Hãng này đang có sản phẩm, không thể xóa!'); }
 
+            // 1. Không cho xóa nếu Brand đã có sản phẩm
+            if ($brand->products()->exists()) {
+                return back()->with('error', 'Không thể xóa! Thương hiệu này đang có sản phẩm.');
+            }
+
+            // 2. Xóa logo nếu có
             if ($brand->logo_url && Storage::disk('public')->exists($brand->logo_url)) {
                 Storage::disk('public')->delete($brand->logo_url);
             }
+
+            // 3. Xóa Brand
             $brand->delete();
 
             return redirect()->route('admin.brands.index')->with('success', 'Đã xóa thương hiệu.');
+            
         } catch (\Exception $e) {
             Log::error("Lỗi xóa Brand ID $id: " . $e->getMessage());
             return back()->with('error', 'Lỗi hệ thống khi xóa.');
         }
     }
+
 }

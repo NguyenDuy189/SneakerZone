@@ -13,11 +13,13 @@ return new class extends Migration
     {
         Schema::create('banners', function (Blueprint $table) {
             $table->id();
-            $table->string('title')->nullable();
+            $table->string('title');
             $table->string('image_url');
             $table->string('link')->nullable();
-            $table->string('position')->default('home_slider');
+            $table->string('position')->default('home_slider'); // home_slider, home_mid, sidebar...
+            $table->integer('priority')->default(0); // Dùng để sắp xếp
             $table->boolean('is_active')->default(true);
+            $table->text('content')->nullable(); // Mô tả thêm nếu cần
             $table->timestamps();
         });
     }

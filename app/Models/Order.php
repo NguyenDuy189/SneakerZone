@@ -10,68 +10,99 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
-    // Định nghĩa các trạng thái đơn hàng để dùng chung toàn hệ thống
-    const STATUS_PENDING = 'pending';
+    // ==============================
+    //   ORDER STATUS CONSTANTS
+    // ==============================
+    const STATUS_PENDING   = 'pending';
     const STATUS_CONFIRMED = 'confirmed';
-    const STATUS_SHIPPING = 'shipping';
+    const STATUS_SHIPPING  = 'shipping';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
-    const STATUS_RETURNED = 'returned';
+    const STATUS_RETURNED  = 'returned';
 
+    // ==============================
+    //   MASS ASSIGNMENT
+    // ==============================
     protected $fillable = [
         'user_id',
+        'shipper_id',
         'order_number',
-        'status',          // Trạng thái đơn: pending, shipping...
-        'payment_status',  // Trạng thái tiền: unpaid, paid
-        'payment_method',  // COD, Banking, Momo...
+        'status',
+        'payment_status',
+        'payment_method',
         'grand_total',
         'shipping_address',
         'phone',
         'note',
     ];
 
-    // Tự động chuyển đổi dữ liệu
     protected $casts = [
         'grand_total' => 'float',
         'created_at'  => 'datetime',
     ];
 
-    // --- RELATIONSHIPS (QUAN HỆ) ---
+    // ==============================
+    //   RELATIONSHIPS
+    // ==============================
 
+    // Chủ đơn hàng (khách)
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    // Khách hàng (alias rõ nghĩa hơn)
+    public function customer()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Shipper được gán
+    public function shipper()
+    {
+        return $this->belongsTo(User::class, 'shipper_id');
+    }
+
+    // Các sản phẩm trong đơn
     public function items()
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    // --- ACCESSORS (ĐỊNH DẠNG DỮ LIỆU HIỂN THỊ) ---
+    // Thông tin vận chuyển (1–1)
+    public function shipping()
+    {
+        return $this->hasOne(ShippingOrder::class);
+    }
 
-    // Gọi $order->formatted_total sẽ ra "1.000.000 VNĐ"
+    // Lịch sử trạng thái đơn hàng
+    public function histories()
+    {
+        return $this->hasMany(OrderHistory::class)->orderBy('created_at', 'desc');
+    }
+
+    // ==============================
+    //   ACCESSORS
+    // ==============================
+
     public function getFormattedTotalAttribute()
     {
         return number_format($this->grand_total, 0, ',', '.') . ' VNĐ';
     }
 
-    // Helper lấy màu sắc badge hiển thị trong Admin (Bootstrap classes)
-    // Gọi $order->status_badge
     public function getStatusBadgeAttribute()
     {
         return match ($this->status) {
-            self::STATUS_PENDING   => 'secondary', // Màu xám
-            self::STATUS_CONFIRMED => 'primary',   // Màu xanh dương
-            self::STATUS_SHIPPING  => 'info',      // Màu xanh nhạt
-            self::STATUS_COMPLETED => 'success',   // Màu xanh lá
-            self::STATUS_CANCELLED => 'danger',    // Màu đỏ
-            self::STATUS_RETURNED  => 'warning',   // Màu vàng
+            self::STATUS_PENDING   => 'secondary',
+            self::STATUS_CONFIRMED => 'primary',
+            self::STATUS_SHIPPING  => 'info',
+            self::STATUS_COMPLETED => 'success',
+            self::STATUS_CANCELLED => 'danger',
+            self::STATUS_RETURNED  => 'warning',
             default                => 'secondary',
         };
     }
 
-    // Helper hiển thị tên trạng thái tiếng Việt
     public function getStatusLabelAttribute()
     {
         return match ($this->status) {
@@ -85,16 +116,16 @@ class Order extends Model
         };
     }
 
-    // --- SCOPES (HỖ TRỢ TRUY VẤN NHANH) ---
+    // ==============================
+    //   QUERY SCOPES
+    // ==============================
 
-    // Dùng: Order::search('098...')->get()
     public function scopeSearch($query, $keyword)
     {
         return $query->where('order_number', 'like', "%{$keyword}%")
-                     ->orWhere('phone', 'like', "%{$keyword}%");
+            ->orWhere('phone', 'like', "%{$keyword}%");
     }
-    
-    // Dùng: Order::byStatus('pending')->get()
+
     public function scopeByStatus($query, $status)
     {
         return $query->where('status', $status);

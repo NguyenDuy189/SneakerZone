@@ -137,18 +137,28 @@ class DiscountController extends Controller
     {
         $discount = Discount::findOrFail($id);
 
+        // 1. Không cho xoá nếu đã được sử dụng
         if ($discount->used_count > 0) {
             return back()->with('error', 'Không thể xoá mã đã được sử dụng.');
         }
 
-        if ($discount->end_date >= now()) {
-            return back()->with('error', 'Không thể xoá mã vẫn còn hiệu lực.');
+        $now = now();
+
+        // 2. Không cho xoá khi voucher đang hoạt động
+        $isActiveNow =
+            (!empty($discount->start_date) && $discount->start_date <= $now) &&
+            (!empty($discount->end_date) && $discount->end_date >= $now);
+
+        if ($isActiveNow) {
+            return back()->with('error', 'Mã đang hoạt động, không thể xoá.');
         }
 
+        // 3. Còn lại (upcoming, expired) => có thể xoá
         $discount->delete();
 
         return back()->with('success', 'Xóa mã giảm giá thành công.');
     }
+
 
     /**
      * VALIDATE CHUYÊN NGHIỆP — CHẶT CHẼ — SẢN PHẨM THỰC TẾ

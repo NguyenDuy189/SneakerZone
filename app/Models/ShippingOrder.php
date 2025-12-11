@@ -19,6 +19,16 @@ class ShippingOrder extends Model
         'note',
     ];
 
+    const STATUS_LABELS = [
+        'pending'       => 'Chờ xử lý',
+        'assigning'     => 'Đang phân công',
+        'shipping'      => 'Đang giao',
+        'delivered'     => 'Giao thành công',
+        'failed'        => 'Giao thất bại',
+        'cancelled'     => 'Đã hủy',
+    ];
+    
+
     // --- Các trạng thái ---
     const STATUS_PENDING = 'pending';
     const STATUS_ASSIGNED = 'assigned';
@@ -28,41 +38,36 @@ class ShippingOrder extends Model
     const STATUS_FAILED = 'failed';
     const STATUS_RETURNED = 'returned';
 
-    // Mảng để hiển thị trong view
+    // Mảng để hiển thị trong view (key = value tiếng Anh, text hiển thị tiếng Việt)
     const STATUS_LIST = [
-        self::STATUS_PENDING,
-        self::STATUS_ASSIGNED,
-        self::STATUS_PICKING,
-        self::STATUS_DELIVERING,
-        self::STATUS_DELIVERED,
-        self::STATUS_FAILED,
-        self::STATUS_RETURNED,
+        self::STATUS_PENDING     => 'Chờ gán',
+        self::STATUS_ASSIGNED    => 'Đã gán shipper',
+        self::STATUS_PICKING     => 'Lấy hàng',
+        self::STATUS_DELIVERING  => 'Đang giao',
+        self::STATUS_DELIVERED   => 'Đã giao',
+        self::STATUS_FAILED      => 'Giao thất bại',
+        self::STATUS_RETURNED    => 'Trả lại',
     ];
 
-    // Nhãn tiếng Việt
-    const STATUS_LABELS = [
-        self::STATUS_PENDING => 'Chờ gán',
-        self::STATUS_ASSIGNED => 'Đã gán shipper',
-        self::STATUS_PICKING => 'Lấy hàng',
-        self::STATUS_DELIVERING => 'Đang giao',
-        self::STATUS_DELIVERED => 'Đã giao',
-        self::STATUS_FAILED => 'Giao thất bại',
-        self::STATUS_RETURNED => 'Trả lại',
-    ];
+    /**
+     * Lấy nhãn tiếng Việt từ key
+     */
+    public static function getStatusLabel($key)
+    {
+        return self::STATUS_LIST[$key] ?? $key;
+    }
 
-    // Quan hệ với Order
+    // --- Quan hệ ---
     public function order()
     {
         return $this->belongsTo(Order::class);
     }
 
-    // Quan hệ với Shipper
     public function shipper()
     {
         return $this->belongsTo(User::class, 'shipper_id');
     }
 
-    // Quan hệ logs
     public function logs()
     {
         return $this->hasMany(ShippingLog::class);

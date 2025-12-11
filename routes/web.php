@@ -11,8 +11,16 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\SupplierController;
+use App\Http\Controllers\Admin\PurchaseOrderController;
+use App\Http\Controllers\Admin\InventoryLogController;
+use App\Http\Controllers\Admin\CustomerUserController;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\ShippingController;
+use App\Http\Controllers\Admin\FlashSaleController;
+use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\BannerController;
 
-//Client
 
 
 /*
@@ -147,4 +155,101 @@ Route::prefix('admin')
         
     });
 
-    });
+        // B. Items & Statistics Management
+        Route::controller(FlashSaleController::class)->prefix('flash-sales/{flash_sale}')->name('flash_sales.')->group(function() {
+            Route::get('items', 'items')->name('items');
+            Route::post('items', 'addItem')->name('items.store');
+            Route::put('items/{item}', 'updateItem')->name('items.update');
+            Route::delete('items/{item}', 'removeItem')->name('items.destroy');
+            Route::get('statistics', 'statistics')->name('statistics');
+        });
+
+        // C. UX Redirect (View -> Items)
+        Route::get('flash-sales/{flash_sale}', fn($id) => redirect()->route('admin.flash_sales.items', $id))
+            ->name('flash_sales.show');
+
+        // D. Main Resource
+        Route::resource('flash-sales', FlashSaleController::class)
+            ->names('flash_sales') // Force route names to use underscore (admin.flash_sales.index)
+            ->except(['show']);
+
+        // =================================================================
+        // 6. CUSTOMER & REVIEWS
+        // =================================================================
+        Route::controller(ReviewController::class)->prefix('reviews')->name('reviews.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::put('{id}/approve', 'approve')->name('approve');
+            Route::delete('{id}', 'destroy')->name('destroy');
+        });
+
+        // --- KHÁCH HÀNG & SỔ ĐỊA CHỈ (Đã sửa hoàn chỉnh) ---
+        Route::controller(CustomerUserController::class)->prefix('customers')->name('customers.')->group(function () {
+            // CRUD Khách hàng
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::get('{id}', 'show')->name('show');
+            Route::get('{id}/edit', 'edit')->name('edit');
+            Route::put('{id}', 'update')->name('update');
+            Route::put('{id}/status', 'updateStatus')->name('update_status');
+            Route::delete('{id}', 'destroy')->name('destroy');
+
+            // CRUD Địa chỉ (Addresses) - Nested Routes
+            Route::get('{id}/addresses/create', 'createAddress')->name('addresses.create');     // Form thêm địa chỉ
+            Route::post('{id}/addresses', 'storeAddress')->name('addresses.store');             // Lưu địa chỉ mới
+            Route::get('{id}/addresses/{address_id}/edit', 'editAddress')->name('addresses.edit'); // Form sửa địa chỉ
+            Route::put('{id}/addresses/{address_id}', 'updateAddress')->name('addresses.update');  // Lưu sửa địa chỉ
+            Route::delete('{id}/addresses/{address_id}', 'deleteAddress')->name('addresses.destroy'); // Xóa địa chỉ
+        });
+
+        // =================================================================
+        // 7. INVENTORY & SUPPLIERS
+        // =================================================================
+        Route::resource('suppliers', SupplierController::class);
+
+        Route::controller(PurchaseOrderController::class)->prefix('purchase-orders')->name('purchase_orders.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::get('{id}', 'show')->name('show');
+            Route::put('{id}/status', 'updateStatus')->name('update_status');
+        });
+
+        Route::get('inventory/logs', [InventoryLogController::class, 'index'])->name('inventory.logs.index');
+
+        // =================================================================
+        // 8. SHIPPING MANAGEMENT
+        // =================================================================
+        Route::controller(ShippingController::class)->prefix('shipping')->name('shipping.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('store', 'store')->name('store');
+            Route::get('trash', 'trash')->name('trash');
+            
+            // Routes with ID parameter
+            Route::prefix('{shipping}')->group(function() {
+                Route::get('show', 'show')->name('show');
+                Route::post('restore', 'restore')->name('restore');
+                Route::delete('destroy', 'destroy')->name('destroy');
+                
+                Route::get('assign', 'assignForm')->name('assign');
+                Route::post('assign', 'assign')->name('assign.submit');
+                Route::put('status', 'updateStatus')->name('update_status');
+            });
+        });
+
+        // =================================================================
+        // 9. SYSTEM ADMINISTRATION (Users & Settings)
+        // =================================================================
+        Route::resource('users', AdminUserController::class)->names('users');
+
+        Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('edit', 'edit')->name('edit');
+            Route::post('update', 'update')->name('update');
+        });
+
+
+        Route::resource('banners', BannerController::class);
+
+    }); // End Admin Routes Group

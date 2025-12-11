@@ -337,7 +337,7 @@
                                         <div>
                                             <span class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">{{ $attr->name }}</span>
                                             <select name="attribute_values[]" class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm px-3 py-2 bg-white">
-                                                <option value="">-- Chọn --</option>
+                                                <option value=""> Chọn </option>
                                                 @foreach($attr->values as $val)
                                                     <option value="{{ $val->id }}" 
                                                         :selected="isEditMode && variantData.attributes.includes({{ $val->id }})">

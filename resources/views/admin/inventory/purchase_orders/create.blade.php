@@ -51,7 +51,7 @@
                                 <select :name="`items[${index}][variant_id]`"
                                         x-model="item.variant_id"
                                         class="w-full text-sm border-slate-200 rounded-lg focus:ring-indigo-500 py-2">
-                                    <option value="">-- Chọn sản phẩm --</option>
+                                    <option value=""> Chọn sản phẩm </option>
                                     @foreach($products as $p)
                                         <option value="{{ $p['id'] }}">{{ $p['name'] }} (SKU: {{ $p['sku'] }})</option>
                                     @endforeach
@@ -130,7 +130,7 @@
                                 Nhà cung cấp <span class="text-rose-500">*</span>
                             </label>
                             <select name="supplier_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                                <option value="">-- Chọn NCC --</option>
+                                <option value=""> Chọn NCC </option>
                                 @foreach($suppliers as $sup)
                                     <option value="{{ $sup->id }}">{{ $sup->name }}</option>
                                 @endforeach

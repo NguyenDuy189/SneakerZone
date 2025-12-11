@@ -18,7 +18,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Alpine.js -->
+<<<<<<< HEAD
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+=======
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+>>>>>>> main
 
     <script>
         tailwind.config = {
@@ -196,9 +200,51 @@
                         <span x-show="sidebarOpen" class="ml-3 truncate">Cấu hình chung</span>
                     </a>
 
+<<<<<<< HEAD
+                    {{-- MENU: QUẢN LÝ TÀI KHOẢN (DROPDOWN MỚI) --}}
+                    <div x-data="{ open: {{ request()->routeIs('admin.customers.*', 'admin.users.*') ? 'true' : 'false' }} }">
+                        <button @click="open = !open" 
+                                class="w-full group flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-xl transition-colors
+                                {{ request()->routeIs('admin.customers.*', 'admin.users.*') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                            <div class="flex items-center">
+                                <i class="fa-solid fa-users-gear w-6 h-6 flex items-center justify-center {{ request()->routeIs('admin.customers.*', 'admin.users.*') ? 'text-indigo-400' : '' }}"></i>
+                                <span x-show="sidebarOpen" class="ml-3 truncate">Quản lý Tài khoản</span>
+                            </div>
+                            <i x-show="sidebarOpen" class="fa-solid fa-chevron-right text-[10px] text-slate-500 transition-transform duration-200" :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        
+                        <div x-show="open && sidebarOpen" x-collapse class="space-y-1 mt-1 pl-11 pr-2 relative">
+                            <div class="absolute left-[22px] top-0 bottom-0 w-[1px] bg-slate-700"></div>
+
+                            {{-- Khách hàng --}}
+                            <a href="{{ route('admin.customers.index') }}" class="block px-2 py-1.5 text-sm rounded-lg transition-colors {{ request()->routeIs('admin.customers.*') ? 'text-white bg-indigo-600/20 border-l-2 border-indigo-500 pl-3' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">
+                                Khách hàng
+                            </a>
+
+                            {{-- Admin & Staff --}}
+                            <a href="{{ route('admin.users.index') }}" class="block px-2 py-1.5 text-sm rounded-lg transition-colors {{ request()->routeIs('admin.users.*') ? 'text-white bg-indigo-600/20 border-l-2 border-indigo-500 pl-3' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">
+                                Admin & Staff
+                            </a>
+                        </div>
+                    </div>
+
+                    {{-- Banner --}}
+                    <a href="{{ route('admin.banners.index') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors relative
+                        {{ request()->routeIs('admin.settings.*') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                        <i class="fa-solid fa-gears w-6 h-6 flex items-center justify-center {{ request()->routeIs('admin.settings.*') ? 'text-indigo-400' : '' }}"></i>
+                        <span x-show="sidebarOpen" class="ml-3 truncate">Banner</span>
+                    </a>
+
+                    {{-- Cấu hình --}}
+                    <a href="{{ route('admin.settings.index') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors relative
+                        {{ request()->routeIs('admin.settings.*') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                        <i class="fa-solid fa-gears w-6 h-6 flex items-center justify-center {{ request()->routeIs('admin.settings.*') ? 'text-indigo-400' : '' }}"></i>
+                        <span x-show="sidebarOpen" class="ml-3 truncate">Cấu hình hệ thống</span>
+=======
                     <a href="#" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors relative">
                         <i class="fa-solid fa-bell w-6 h-6 flex items-center justify-center"></i>
                         <span x-show="sidebarOpen" class="ml-3 truncate">Gửi thông báo</span>
+>>>>>>> main
                     </a>
 
                 </nav>
