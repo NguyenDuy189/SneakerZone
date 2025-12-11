@@ -49,4 +49,11 @@ class OrderItem extends Model
     {
         return number_format($this->total_line, 0, ',', '.') . ' VNĐ';
     }
+
+    public function product()
+    {
+        // Nếu bảng order_items không có product_id, hãy xem nó liên kết với product qua cột nào?
+        // Mặc định Laravel tìm 'product_id'.
+        return $this->belongsTo(Product::class, 'product_id'); 
+    }
 }

@@ -71,4 +71,15 @@ class ProductVariant extends Model
             ? $this->original_price_display * 0.95 // tự giảm 5% nếu nhập sai
             : $flashSalePrice;
     }
+
+    public function attributeValues()
+    {
+        return $this->belongsToMany(
+            AttributeValue::class,
+            'variant_attribute_values',
+            'product_variant_id',
+            'attribute_value_id'
+        );
+    }
+
 }

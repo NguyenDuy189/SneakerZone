@@ -31,6 +31,8 @@ class User extends Authenticatable
         'role',
         'status',
         'address',
+        'gender',
+        'birthday',
     ];
 
     protected $hidden = [
@@ -102,4 +104,15 @@ class User extends Authenticatable
     {
         return $this->role === self::ROLE_ADMIN;
     }
+
+    public function addresses()
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    public function defaultAddress()
+    {
+        return $this->hasOne(UserAddress::class)->where('is_default', true);
+    }
+
 }

@@ -24,6 +24,9 @@ return new class extends Migration
             $table->decimal('discount_amount', 15, 2)->default(0);
             $table->decimal('total_amount', 15, 2);
             
+            $table->foreignId('shipping_address_id')->nullable()->constrained('user_addresses');
+            $table->foreignId('billing_address_id')->nullable()->constrained('user_addresses');
+
             $table->json('shipping_address'); // Snapshot
             $table->text('note')->nullable();
             

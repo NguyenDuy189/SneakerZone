@@ -2,66 +2,35 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller; // <--- QUAN TRỌNG: Phải thêm dòng này để gọi Controller cha
-use App\Models\Notification;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\Order;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
+use App\Services\DashboardService;
 
-class DashboardController extends Controller {
-    public function index()
+class DashboardController extends Controller
+{
+    protected $dashboardService;
+
+    public function __construct(DashboardService $dashboardService)
     {
-        // 1. CARDS: TỔNG QUAN
-        // Tổng doanh thu (Chỉ tính đơn đã hoàn thành)
-        $totalRevenue = Order::where('status', 'completed')->sum('total_amount');
-        
-        // Số đơn hàng cần xử lý (Pending hoặc Processing)
-        $pendingOrders = Order::whereIn('status', ['pending', 'processing'])->count();
-        
-        // Tổng khách hàng
-        $totalUsers = User::count();
-        
-        // Khách mới tháng này
-        $usersThisMonth = User::whereMonth('created_at', Carbon::now()->month)->count();
+        $this->dashboardService = $dashboardService;
+    }
 
-        // 2. CHART: DOANH THU THEO THÁNG
-        $monthlyStats = Order::where('status', 'completed')
-            ->select(
-                DB::raw('MONTH(created_at) as month'),
-                DB::raw('SUM(total_amount) as total')
-            )
-            ->whereYear('created_at', date('Y'))
-            ->groupBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
+    /**
+     * Hiển thị Dashboard Admin
+     */
+    public function index(Request $request)
+    {
+        // 1. Validate dữ liệu đầu vào để bảo mật
+        $filters = $request->validate([
+            'date_range' => 'nullable|string|in:today,yesterday,7_days,30_days,this_month,last_month',
+        ]);
 
-        $chartLabels = [];
-        $chartData = [];
-        for ($i = 1; $i <= 12; $i++) {
-            $chartLabels[] = "Tháng $i";
-            $chartData[] = $monthlyStats[$i] ?? 0;
-        }
+        // 2. Lấy dữ liệu từ Service
+        $data = $this->dashboardService->getDashboardData($filters);
 
-        // 3. DANH SÁCH: THÔNG BÁO & ĐƠN HÀNG GẦN ĐÂY
-        $notifications = Notification::latest()->take(4)->get();
         
-        // Lấy 5 đơn mới nhất, eager load User để tránh N+1 query
-        $recentOrders = Order::with('user')
-            ->latest()
-            ->take(5)
-            ->get();
 
-        return view('admin.dashboard.index', compact(
-            'totalRevenue',
-            'pendingOrders',
-            'totalUsers',
-            'usersThisMonth',
-            'chartLabels',
-            'chartData',
-            'notifications',
-            'recentOrders'
-        ));
+        // 3. Trả về View với dữ liệu
+        return view('admin.dashboard.index', $data);
     }
 }

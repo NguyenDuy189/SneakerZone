@@ -13,6 +13,83 @@
         </a>
     </div>
 
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <form action="{{ route('admin.categories.index') }}" method="GET" 
+            class="flex flex-col md:flex-row gap-3">
+
+            {{-- SEARCH --}}
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+                <input type="text" name="keyword" 
+                    class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-700 
+                            placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 
+                            focus:border-indigo-500 transition-all shadow-sm"
+                    placeholder="Tìm theo tên danh mục..."
+                    value="{{ request('keyword') }}">
+            </div>
+
+            {{-- FILTER LEVEL --}}
+            <div class="relative min-w-[180px]">
+                <select name="level" 
+                    class="w-full pl-4 pr-10 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 
+                        bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 
+                        appearance-none cursor-pointer shadow-sm">
+
+                    {{-- Mặc định: không lọc --}}
+                    <option value="" 
+                        {{ request()->has('level') ? (request('level') === '' ? 'selected' : '') : 'selected' }}>
+                        Tất cả cấp độ
+                    </option>
+
+                    {{-- Sinh level động --}}
+                    @foreach($levels as $lv)
+                        <option value="{{ $lv }}" 
+                            {{ request('level') !== null && request('level') == $lv ? 'selected' : '' }}>
+                            Level {{ $lv }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+
+            {{-- FILTER STATUS --}}
+            <div class="relative min-w-[150px]">
+                <select name="status" 
+                    class="w-full pl-4 pr-10 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 
+                        bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 
+                        appearance-none cursor-pointer shadow-sm">
+
+                    <option value="" {{ request('status') === null || request('status') === '' ? 'selected' : '' }}>
+                        Tất cả trạng thái
+                    </option>
+                    <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Hiển thị</option>
+                    <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Ẩn</option>
+                </select>
+
+                <!-- Icon mũi tên custom -->
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+
+
+
+            {{-- BUTTON --}}
+            <button type="submit" 
+                    class="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium 
+                        rounded-lg shadow-md transition-all flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-filter"></i>
+                Lọc
+            </button>
+
+        </form>
+    </div>
+
     <!-- Thông báo (đã có ở layout mẹ, nhưng nếu muốn hiển thị riêng ở đây cũng được) -->
 
     <div class="w-full overflow-hidden rounded-lg shadow-md border border-gray-200 bg-white">
@@ -29,7 +106,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y">
-                    @forelse($categories as $cat)
+                    @forelse ($categories as $cat)
                     <tr class="text-gray-700 hover:bg-gray-50 transition-colors">
                         <!-- Ảnh -->
                         <td class="px-4 py-3">

@@ -28,11 +28,14 @@ class Category extends Model
         return $this->belongsTo(Category::class, 'parent_id');
     }
 
-    /**
-     * Quan hệ: Lấy các danh mục con
-     */
     public function children()
     {
         return $this->hasMany(Category::class, 'parent_id');
+    }
+
+    // Bổ sung — Quan hệ đến bảng Products
+    public function products()
+    {
+        return $this->hasMany(Product::class, 'category_id');
     }
 }

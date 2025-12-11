@@ -13,12 +13,40 @@ use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Eager loading 'parent' để tránh N+1 Query
-        $categories = Category::with('parent')->orderBy('level', 'asc')->latest()->paginate(10);
-        return view('admin.categories.index', compact('categories'));
+        $query = Category::with('parent')->orderBy('level')->orderBy('name');
+
+        // Tìm kiếm theo tên
+        if ($request->filled('keyword')) {
+            $query->where('name', 'like', '%'.$request->keyword.'%');
+        }
+
+        // Lọc level
+        if ($request->has('level') && $request->level !== '' && $request->level !== null) {
+            $query->where('level', intval($request->level));
+        }
+
+        // Lọc trạng thái
+        if ($request->has('status') && $request->status !== '' && $request->status !== null) {
+            if ($request->status === 'active') {
+                $query->where('is_visible', 1);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_visible', 0);
+            }
+        }
+
+        $categories = $query->paginate(10)->appends($request->except('page'));
+
+        // Lấy danh sách level động
+        $levels = Category::select('level')
+                    ->groupBy('level')
+                    ->orderBy('level')
+                    ->pluck('level');
+
+        return view('admin.categories.index', compact('categories', 'levels'));
     }
+
 
     public function create()
     {
@@ -152,27 +180,33 @@ class CategoryController extends Controller
     public function destroy($id)
     {
         try {
-            $category = Category::findOrFail($id);
+            $category = Category::with('children', 'products')->findOrFail($id);
 
-            // Check ràng buộc: Có con thì không cho xóa (Rất quan trọng)
-            if ($category->children()->count() > 0) {
-                return back()->with('error', 'Không thể xóa! Danh mục này đang chứa các danh mục con. Hãy xóa hoặc di chuyển danh mục con trước.');
+            // 1. Cấm xóa nếu có danh mục con
+            if ($category->children->count() > 0) {
+                return redirect()->back()->with('error', 'Không thể xóa! Danh mục này đang chứa danh mục con.');
             }
-            
-            // Check ràng buộc: Có sản phẩm thì không cho xóa (Nếu đã có bảng products)
-            // if ($category->products()->exists()) { return back()->with('error', 'Danh mục đang có sản phẩm!'); }
 
+            // 2. Cấm xóa nếu có sản phẩm
+            if ($category->products->count() > 0) {
+                return redirect()->back()->with('error', 'Không thể xóa! Danh mục này đang chứa sản phẩm.');
+            }
+
+            // 3. Xóa ảnh nếu có
             if ($category->image_url && Storage::disk('public')->exists($category->image_url)) {
                 Storage::disk('public')->delete($category->image_url);
             }
 
+            // 4. Xóa danh mục
             $category->delete();
 
-            return redirect()->route('admin.categories.index')->with('success', 'Đã xóa danh mục.');
+            return redirect()->route('admin.categories.index')
+                            ->with('success', 'Đã xóa danh mục thành công.');
 
         } catch (\Exception $e) {
-            Log::error("Lỗi xóa Category ID $id: " . $e->getMessage());
-            return back()->with('error', 'Lỗi hệ thống khi xóa.');
+            Log::error("Lỗi xóa Category $id: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Lỗi hệ thống! Không thể xóa danh mục.');
         }
     }
+
 }

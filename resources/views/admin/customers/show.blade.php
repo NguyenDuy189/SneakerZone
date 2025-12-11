@@ -19,72 +19,225 @@
         
         {{-- CỘT TRÁI: THÔNG TIN CÁ NHÂN (PROFILE CARD) --}}
         <div class="lg:col-span-1 space-y-6">
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                {{-- Banner nền --}}
-                <div class="h-24 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden sticky top-6">
                 
-                <div class="px-6 pb-6 relative">
-                    {{-- Avatar --}}
-                    <div class="w-20 h-20 rounded-full bg-white p-1 absolute -top-10 left-6 shadow-md">
-                        <div class="w-full h-full rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-indigo-600 border border-slate-200">
-                            {{ substr($customer->full_name, 0, 1) }}
-                        </div>
+                {{-- Banner & Avatar Section --}}
+                <div class="relative">
+                    {{-- Banner Gradient --}}
+                    <div class="h-32 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                     </div>
 
-                    {{-- Nút Action góc phải --}}
-                    <div class="flex justify-end pt-4">
+                    {{-- Avatar Wrapper --}}
+                    <div class="absolute -bottom-12 left-1/2 -translate-x-1/2">
+                        <div class="w-24 h-24 rounded-full bg-white p-1.5 shadow-xl ring-1 ring-slate-100 relative group">
+                            <img src="{{ $customer->avatar_url ?? asset('images/default-avatar.png') }}" 
+                                alt="{{ $customer->full_name }}"
+                                class="w-full h-full rounded-full object-cover bg-slate-100">
+                            
+                            {{-- Status Indicator (Online/Offline/Status) --}}
+                            <div class="absolute bottom-1 right-1 w-5 h-5 border-4 border-white rounded-full 
+                                {{ $customer->status === 'active' ? 'bg-emerald-500' : 'bg-rose-500' }}"
+                                title="{{ $customer->status === 'active' ? 'Đang hoạt động' : 'Bị khóa' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Main Info Section --}}
+                <div class="pt-14 pb-6 px-6 text-center">
+                    <h3 class="text-xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                        {{ $customer->full_name }}
+                        @if($customer->email_verified_at)
+                            <i class="fa-solid fa-circle-check text-blue-500 text-sm" title="Đã xác thực Email"></i>
+                        @endif
+                    </h3>
+                    
+                    <div class="mt-1 flex items-center justify-center gap-2 text-sm text-slate-500">
+                        <span>{{ $customer->customer_group ?? 'Thành viên' }}</span>
+                        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                        <span class="font-mono">{{ $customer->code ?? '#ID: ' . $customer->id }}</span>
+                    </div>
+
+                    {{-- Status Badges --}}
+                    <div class="mt-4 flex justify-center gap-2">
                         @if($customer->status === 'active')
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                <i class="fa-solid fa-check-circle mr-1.5"></i> Hoạt động
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                Hoạt động
                             </span>
                         @else
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                                <i class="fa-solid fa-ban mr-1.5"></i> Đã khóa
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                                Đã khóa
                             </span>
                         @endif
                     </div>
+                </div>
 
-                    {{-- Thông tin --}}
-                    <div class="mt-4">
-                        <h3 class="text-xl font-bold text-slate-800">{{ $customer->full_name }}</h3>
-                        <p class="text-slate-500 text-sm">{{ $customer->email }}</p>
+                {{-- Quick Stats Grid (Thống kê nhanh) --}}
+                <div class="grid grid-cols-2 border-y border-slate-100 bg-slate-50/50 divide-x divide-slate-100">
+                    <div class="p-4 text-center">
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Đơn hàng</p>
+                        <p class="text-lg font-bold text-slate-700 mt-1">{{ $customer->orders_count ?? 0 }}</p>
+                    </div>
+                    <div class="p-4 text-center">
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Tổng chi tiêu</p>
+                        <p class="text-lg font-bold text-indigo-600 mt-1">
+                            {{ number_format($customer->total_spent ?? 0) }}đ
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Detailed Info List --}}
+                <div class="p-6 space-y-5">
+
+                    {{-- Email --}}
+                    <div class="flex items-start gap-3 group">
+                        <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors flex-shrink-0">
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs text-slate-400 font-bold uppercase">Email</p>
+                            <p class="text-sm font-medium text-slate-700 truncate" title="{{ $customer->email }}">
+                                {{ $customer->email }}
+                            </p>
+                        </div>
                     </div>
 
-                    <div class="border-t border-slate-100 my-5"></div>
+                    {{-- Phone --}}
+                    <div class="flex items-start gap-3 group">
+                        <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors flex-shrink-0">
+                            <i class="fa-solid fa-phone"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-bold uppercase">Điện thoại</p>
+                            <p class="text-sm font-medium text-slate-700">{{ $customer->phone ?? 'Chưa cập nhật' }}</p>
+                        </div>
+                    </div>
 
-                    <div class="space-y-4">
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
-                                <i class="fa-solid fa-phone"></i>
+                    {{-- Gender & Birthday (Two columns row) --}}
+                    <div class="grid grid-cols-2 gap-4">
+                        {{-- Gender --}}
+                        <div class="flex items-start gap-3 group">
+                            <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-venus-mars"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-slate-400 font-bold uppercase">Điện thoại</p>
-                                <p class="text-sm font-medium text-slate-700">{{ $customer->phone ?? 'Chưa cập nhật' }}</p>
+                                <p class="text-xs text-slate-400 font-bold uppercase">Giới tính</p>
+                                <p class="text-sm font-medium text-slate-700">
+                                    @if($customer->gender == 'male') Nam
+                                    @elseif($customer->gender == 'female') Nữ
+                                    @else Khác @endif
+                                </p>
                             </div>
                         </div>
 
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
-                                <i class="fa-solid fa-location-dot"></i>
+                        {{-- Birthday --}}
+                        <div class="flex items-start gap-3 group">
+                            <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-cake-candles"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-slate-400 font-bold uppercase">Địa chỉ</p>
-                                <p class="text-sm font-medium text-slate-700 leading-relaxed">
-                                    {{ $customer->address ?? 'Chưa cập nhật địa chỉ giao hàng.' }}
+                                <p class="text-xs text-slate-400 font-bold uppercase">Ngày sinh</p>
+                                <p class="text-sm font-medium text-slate-700">
+                                    {{ $customer->birthday ? \Carbon\Carbon::parse($customer->birthday)->format('d/m/Y') : '--/--' }}
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mt-6">
-                        <a href="{{ route('admin.customers.edit', $customer->id) }}" class="w-full flex items-center justify-center px-4 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">
-                            <i class="fa-solid fa-pen-to-square mr-2"></i> Chỉnh sửa hồ sơ
-                        </a>
+                    <div class="border-t border-slate-100"></div>
+
+                    {{-- Default Address --}}
+                    @php
+                        $defaultAddress = $customer->addresses->where('is_default', true)->first();
+                    @endphp
+                    <div class="flex items-start gap-3 group">
+                        <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-rose-50 group-hover:text-rose-500 transition-colors flex-shrink-0">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-xs text-slate-400 font-bold uppercase">Địa chỉ mặc định</p>
+                                @if($defaultAddress)
+                                    <span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">Default</span>
+                                @endif
+                            </div>
+                            
+                            @if($defaultAddress)
+                                <p class="text-sm font-medium text-slate-700 leading-snug">
+                                    {{ $defaultAddress->address }}
+                                </p>
+                                <p class="text-xs text-slate-500 mt-1">
+                                    {{ $defaultAddress->ward }}, {{ $defaultAddress->district }}, {{ $defaultAddress->city }}
+                                </p>
+                                <p class="text-xs text-slate-400 mt-1">
+                                    <i class="fa-solid fa-user text-[10px] mr-1"></i> {{ $defaultAddress->contact_name }} 
+                                    <span class="mx-1">•</span> 
+                                    <i class="fa-solid fa-phone text-[10px] mr-1"></i> {{ $defaultAddress->phone }}
+                                </p>
+                            @else
+                                <p class="text-sm text-slate-500 italic">Chưa thiết lập địa chỉ mặc định.</p>
+                            @endif
+                        </div>
                     </div>
+
+                    {{-- Other Addresses (Collapsible logic usually goes here, but keeping it simple list) --}}
+                    @if($customer->addresses->where('is_default', false)->count() > 0)
+                        <div class="flex items-start gap-3 group">
+                            <div class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-200 transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-map"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-400 font-bold uppercase mb-1">Địa chỉ khác ({{ $customer->addresses->where('is_default', false)->count() }})</p>
+                                <ul class="text-xs text-slate-600 space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                    @foreach($customer->addresses->where('is_default', false) as $addr)
+                                        <li class="pl-2 border-l-2 border-slate-200">
+                                            <span class="font-medium text-slate-700">{{ $addr->city }}</span> - {{ $addr->district }}
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="border-t border-slate-100"></div>
+
+                    {{-- System Meta Data --}}
+                    <div class="bg-slate-50 rounded-xl p-3 space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Đăng ký:</span>
+                            <span class="font-medium text-slate-600">{{ $customer->created_at->format('d/m/Y') }}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Login cuối:</span>
+                            <span class="font-medium text-slate-600">
+                                {{ $customer->last_login_at ? \Carbon\Carbon::parse($customer->last_login_at)->diffForHumans() : 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">IP cuối:</span>
+                            <span class="font-mono text-slate-600">{{ $customer->last_login_ip ?? 'Unknown' }}</span>
+                        </div>
+                    </div>
+
                 </div>
+
+                {{-- Actions --}}
+                <div class="px-6 pb-6">
+                    <a href="{{ route('admin.customers.edit', $customer->id) }}" 
+                    class="flex items-center justify-center w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl shadow-lg shadow-slate-900/10 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                        <i class="fa-solid fa-pen-to-square mr-2"></i> Chỉnh sửa hồ sơ
+                    </a>
+                    
+                    {{-- Reset Password Button (Optional nice-to-have) --}}
+                    <button type="button" onclick="confirm('Gửi email reset mật khẩu?')" class="mt-3 w-full text-xs text-slate-500 hover:text-indigo-600 font-medium transition-colors">
+                        <i class="fa-solid fa-key mr-1"></i> Gửi yêu cầu đặt lại mật khẩu
+                    </button>
+                </div>
+
             </div>
         </div>
-
         {{-- CỘT PHẢI: STATS & LỊCH SỬ MUA HÀNG --}}
         <div class="lg:col-span-2 space-y-6">
             

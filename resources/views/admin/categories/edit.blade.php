@@ -30,7 +30,7 @@
                     <div>
                         <label class="block mb-2 text-sm font-bold text-gray-800">Danh mục cha</label>
                         <select name="parent_id" class="w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:bg-white cursor-pointer">
-                            <option value="">-- Là danh mục gốc (Level 0) --</option>
+                            <option value=""> Là danh mục gốc (Level 0) </option>
                             @foreach($parents as $parent)
                                 <option value="{{ $parent->id }}" {{ old('parent_id', $category->parent_id) == $parent->id ? 'selected' : '' }}>
                                     {{ str_repeat('— ', $parent->level) }} {{ $parent->name }}

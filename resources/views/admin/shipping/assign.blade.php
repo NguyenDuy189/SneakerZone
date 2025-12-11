@@ -52,7 +52,7 @@
                 <div class="mb-4">
                     <label class="block text-sm font-bold text-slate-700 mb-2">Chọn Shipper <span class="text-rose-500">*</span></label>
                     <select name="shipper_id" class="w-full border border-slate-300 rounded-lg py-2.5 px-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white cursor-pointer shadow-sm" required>
-                        <option value="">-- Chọn Shipper --</option>
+                        <option value=""> Chọn Shipper </option>
                         @foreach($shippers as $shipper)
                             <option value="{{ $shipper->id }}" {{ old('shipper_id') == $shipper->id ? 'selected' : '' }}>
                                 {{ $shipper->full_name }} ({{ $shipper->phone }})

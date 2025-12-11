@@ -85,7 +85,7 @@
                 {{-- Vai trò --}}
                 <div class="md:col-span-3">
                     <select name="role" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
-                        <option value="">-- Tất cả vai trò --</option>
+                        <option value=""> Tất cả vai trò </option>
                         <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Quản trị viên (Admin)</option>
                         <option value="staff" {{ request('role') == 'staff' ? 'selected' : '' }}>Nhân viên (Staff)</option>
                     </select>

@@ -28,7 +28,7 @@
                 {{-- Nhà cung cấp --}}
                 <div class="md:col-span-3">
                     <select name="supplier_id" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
-                        <option value="">-- Tất cả NCC --</option>
+                        <option value=""> Tất cả NCC </option>
                         @foreach($suppliers as $sup)
                             <option value="{{ $sup->id }}" {{ request('supplier_id') == $sup->id ? 'selected' : '' }}>{{ $sup->name }}</option>
                         @endforeach
@@ -38,7 +38,7 @@
                 {{-- Trạng thái --}}
                 <div class="md:col-span-3">
                     <select name="status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
-                        <option value="">-- Trạng thái --</option>
+                        <option value=""> Trạng thái </option>
                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>⏳ Chờ nhập kho</option>
                         <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>✅ Đã nhập kho</option>
                         <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>🚫 Đã hủy</option>

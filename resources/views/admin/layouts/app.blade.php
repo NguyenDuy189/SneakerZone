@@ -18,7 +18,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Alpine.js -->
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
     <!-- Config Tailwind -->
     <script>
@@ -203,6 +203,13 @@
                             </a>
                         </div>
                     </div>
+
+                    {{-- Banner --}}
+                    <a href="{{ route('admin.banners.index') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors relative
+                        {{ request()->routeIs('admin.settings.*') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                        <i class="fa-solid fa-gears w-6 h-6 flex items-center justify-center {{ request()->routeIs('admin.settings.*') ? 'text-indigo-400' : '' }}"></i>
+                        <span x-show="sidebarOpen" class="ml-3 truncate">Banner</span>
+                    </a>
 
                     {{-- Cấu hình --}}
                     <a href="{{ route('admin.settings.index') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-colors relative

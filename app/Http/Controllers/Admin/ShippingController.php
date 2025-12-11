@@ -23,6 +23,17 @@ class ShippingController extends Controller
     {
         $query = ShippingOrder::with(['order.customer', 'shipper'])->latest();
 
+        // Tìm kiếm theo mã đơn hoặc tên khách hàng
+        if ($request->filled('keyword')) {
+            $keyword = $request->keyword;
+            $query->where(function($q) use ($keyword) {
+                $q->where('tracking_code', 'like', "%{$keyword}%")
+                ->orWhereHas('order.customer', function($q2) use ($keyword) {
+                    $q2->where('full_name', 'like', "%{$keyword}%");
+                });
+            });
+        }
+
         // Filter theo trạng thái nếu có
         if ($request->filled('status')) {
             $query->where('status', $request->status);

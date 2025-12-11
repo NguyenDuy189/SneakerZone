@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('category_id')
+            ->constrained('categories')
+            ->restrictOnDelete(); // CẤM XÓA danh mục nếu có sản phẩm
+
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('sku_code')->unique()->nullable(); // Mã quản lý chung

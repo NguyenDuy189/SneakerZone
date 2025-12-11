@@ -105,8 +105,7 @@ class Order extends Model
      */
     public function customer()
     {
-        // Giả sử bảng users lưu khách hàng, khóa ngoại customer_id
-        return $this->belongsTo(User::class, 'customer_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**

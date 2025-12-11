@@ -31,6 +31,8 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\FlashSaleController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\BannerController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -141,7 +143,9 @@ Route::prefix('admin')
             Route::delete('{id}', 'destroy')->name('destroy');
         });
 
+        // --- KHÁCH HÀNG & SỔ ĐỊA CHỈ (Đã sửa hoàn chỉnh) ---
         Route::controller(CustomerUserController::class)->prefix('customers')->name('customers.')->group(function () {
+            // CRUD Khách hàng
             Route::get('/', 'index')->name('index');
             Route::get('create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
@@ -150,6 +154,13 @@ Route::prefix('admin')
             Route::put('{id}', 'update')->name('update');
             Route::put('{id}/status', 'updateStatus')->name('update_status');
             Route::delete('{id}', 'destroy')->name('destroy');
+
+            // CRUD Địa chỉ (Addresses) - Nested Routes
+            Route::get('{id}/addresses/create', 'createAddress')->name('addresses.create');     // Form thêm địa chỉ
+            Route::post('{id}/addresses', 'storeAddress')->name('addresses.store');             // Lưu địa chỉ mới
+            Route::get('{id}/addresses/{address_id}/edit', 'editAddress')->name('addresses.edit'); // Form sửa địa chỉ
+            Route::put('{id}/addresses/{address_id}', 'updateAddress')->name('addresses.update');  // Lưu sửa địa chỉ
+            Route::delete('{id}/addresses/{address_id}', 'deleteAddress')->name('addresses.destroy'); // Xóa địa chỉ
         });
 
         // =================================================================
@@ -198,5 +209,8 @@ Route::prefix('admin')
             Route::get('edit', 'edit')->name('edit');
             Route::post('update', 'update')->name('update');
         });
+
+
+        Route::resource('banners', BannerController::class);
 
     }); // End Admin Routes Group

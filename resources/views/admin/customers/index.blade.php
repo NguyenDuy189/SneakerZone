@@ -70,7 +70,7 @@
                 {{-- Trạng thái --}}
                 <div class="md:col-span-3">
                     <select name="status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
-                        <option value="">-- Tất cả trạng thái --</option>
+                        <option value=""> Tất cả trạng thái </option>
                         <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Hoạt động</option>
                         <option value="banned" {{ request('status') == 'banned' ? 'selected' : '' }}>Đã khóa</option>
                     </select>

@@ -203,7 +203,7 @@
                     <div class="mb-6">
                         <label class="block text-sm font-bold text-slate-700 mb-2">Thương hiệu <span class="text-rose-500">*</span></label>
                         <select name="brand_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm cursor-pointer" required>
-                            <option value="">-- Chọn thương hiệu --</option>
+                            <option value=""> Chọn thương hiệu </option>
                             @foreach($brands as $brand)
                                 <option value="{{ $brand->id }}" {{ old('brand_id') == $brand->id ? 'selected' : '' }}>{{ $brand->name }}</option>
                             @endforeach
