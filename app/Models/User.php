@@ -6,24 +6,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    // --- KHAI BÁO HẰNG SỐ (Để dùng chung trong Controller) ---
-    const ROLE_ADMIN = 'admin';
-    const ROLE_STAFF = 'staff';
-    const ROLE_CUSTOMER = 'customer';
-    
-    const STATUS_ACTIVE = 'active';
-    const STATUS_BANNED = 'banned';
+    // ==========================================================
+    // ROLES (Định nghĩa vai trò để quản lý quyền)
+    // ==========================================================
 
-    /**
-     * Các trường được phép gán dữ liệu
-     */
+    const ROLE_ADMIN  = 'admin';
+    const ROLE_USER   = 'user';
+    const ROLE_SHIPPER = 'shipper';
+
+    // ==========================================================
+    // FILLABLE
+    // ==========================================================
+
     protected $fillable = [
-        'full_name', // Đã sửa thành full_name theo migration của bạn
+        'name',
         'email',
         'password',
         'phone',
@@ -35,84 +37,112 @@ class User extends Authenticatable
         'birthday',
     ];
 
+    // ==========================================================
+    // HIDDEN
+    // ==========================================================
+
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
+    // ==========================================================
+    // CASTS
+    // ==========================================================
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'birthday'          => 'date',
+            'password'          => 'hashed',
         ];
     }
 
-    // =========================================================================
-    // 1. ĐỊNH NGHĨA QUAN HỆ (RELATIONSHIPS) - KHẮC PHỤC LỖI CỦA BẠN TẠI ĐÂY
-    // =========================================================================
+    // ==========================================================
+    // RELATIONSHIPS
+    // ==========================================================
 
-    /**
-     * Một User có nhiều Đơn hàng (Orders)
-     */
+    // User có nhiều Orders
     public function orders(): HasMany
     {
-        return $this->hasMany(Order::class, 'user_id'); 
+        return $this->hasMany(Order::class, 'user_id');
     }
 
-    /**
-     * Một User có nhiều Đánh giá (Reviews)
-     */
+    // User có nhiều Reviews
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'user_id');
     }
 
-    // =========================================================================
-    // 2. ACCESSORS (HÀM PHỤ TRỢ)
-    // =========================================================================
+    // User có nhiều địa chỉ
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    // Địa chỉ mặc định
+    public function defaultAddress(): HasOne
+    {
+        return $this->hasOne(UserAddress::class)->where('is_default', true);
+    }
+
+    // Shipper có nhiều đơn hàng được gán
+    public function shippingOrders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'shipper_id');
+    }
+
+    // ==========================================================
+    // ACCESSORS & HELPER METHODS
+    // ==========================================================
 
     /**
-     * Lấy Avatar: Nếu chưa có thì tự tạo ảnh theo tên
-     * Sử dụng: $user->avatar_url
+     * Lấy avatar URL của user
      */
-    public function getAvatarUrlAttribute()
+    public function getAvatarUrlAttribute(): string
     {
         if ($this->avatar) {
             return asset('storage/' . $this->avatar);
         }
-        // Tạo avatar từ 2 chữ cái đầu của tên
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->full_name) . '&background=random&color=fff';
+
+        // Avatar tự tạo theo tên
+        $name = urlencode($this->name ?? 'User');
+
+        return "https://ui-avatars.com/api/?name={$name}&background=random&color=fff";
     }
 
     /**
-     * Tính tổng tiền khách đã mua (Chỉ tính đơn đã thanh toán)
-     * Sử dụng: $user->total_spent
+     * Tổng tiền user đã chi (chỉ tính đơn đã thanh toán)
      */
-    public function getTotalSpentAttribute()
+    public function getTotalSpentAttribute(): float
     {
-        // Lưu ý: Cần load quan hệ orders trước khi gọi để tối ưu
         return $this->orders
             ->where('payment_status', 'paid')
-            ->sum('total_amount');
+            ->sum('grand_total');
     }
 
     /**
-     * Kiểm tra có phải Admin không
+     * Kiểm tra có phải admin
      */
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
     }
 
-    public function addresses()
+    /**
+     * Kiểm tra shipper
+     */
+    public function isShipper(): bool
     {
-        return $this->hasMany(UserAddress::class);
+        return $this->role === self::ROLE_SHIPPER;
     }
 
-    public function defaultAddress()
+    /**
+     * Kiểm tra user thường
+     */
+    public function isCustomer(): bool
     {
-        return $this->hasOne(UserAddress::class)->where('is_default', true);
+        return $this->role === self::ROLE_USER;
     }
-
 }

@@ -13,13 +13,10 @@ return new class extends Migration
     {
         Schema::create('po_items', function (Blueprint $table) {
             $table->id();
-            // Dùng cascade để khi xóa phiếu nhập thì xóa luôn chi tiết
             $table->foreignId('purchase_order_id')->constrained('purchase_orders')->onDelete('cascade');
             $table->foreignId('product_variant_id')->constrained('product_variants');
-            
             $table->integer('quantity');
-            $table->decimal('import_price', 15, 0); // Giá nhập đơn vị
-            $table->decimal('total', 15, 0); // Mới: Tổng tiền dòng này (qty * price)
+            $table->decimal('import_price', 15, 2);
         });
     }
 

@@ -4,74 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductVariant extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'product_id', 'sku', 'price', 'stock_quantity', 'image'
+        'product_id',
+        'sku',
+        'name',
+        'image_url',
+        'original_price',
+        'sale_price',
+        'stock_quantity',
     ];
 
-    protected $casts = [
-        'price' => 'float',
-        'stock_quantity' => 'integer',
-    ];
+    // ================================
+    // RELATIONSHIPS
+    // ================================
 
-    // =============================
-    // RELATION
-    // =============================
+    // Thuộc về Product cha
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
 
-    // =============================
-    // ACCESSOR: Giá gốc chuẩn
-    // =============================
-    public function getOriginalPriceDisplayAttribute(): float
-    {
-        // Nếu giá variant > 0 thì lấy
-        if ($this->original_price > 0) {
-            return round($this->original_price, 2);
-        }
-
-        // Nếu fallback từ product cha (giả sử product có cột price)
-        if ($this->relationLoaded('product') && $this->product) {
-            return round($this->product->price ?? 0, 2);
-        }
-
-        // Nếu chưa load relation
-        return round($this->product()->value('price') ?? 0, 2);
-    }
-
-    // =============================
-    // ACCESSOR: Giá hiển thị dưới dạng string có format VNĐ
-    // =============================
-    public function getOriginalPriceFormattedAttribute(): string
-    {
-        return number_format($this->original_price_display, 0, ',', '.') . '₫';
-    }
-
-    // =============================
-    // CHECK STOCK
-    // =============================
-    public function isInStock(int $quantity = 1): bool
-    {
-        return $this->stock_quantity >= $quantity;
-    }
-
-    // =============================
-    // HELPER: Giá hợp lệ cho Flash Sale
-    // =============================
-    public function getValidFlashSalePrice(float $flashSalePrice): float
-    {
-        // Giá Flash Sale phải nhỏ hơn giá gốc
-        return $flashSalePrice >= $this->original_price_display
-            ? $this->original_price_display * 0.95 // tự giảm 5% nếu nhập sai
-            : $flashSalePrice;
-    }
-
+    // Quan hệ N-N với Attribute Values
     public function attributeValues()
     {
         return $this->belongsToMany(
@@ -82,4 +41,52 @@ class ProductVariant extends Model
         );
     }
 
+    // Lịch sử tồn kho
+    public function inventoryLogs()
+    {
+        return $this->hasMany(InventoryLog::class, 'product_variant_id');
+    }
+
+    // ================================
+    // ACCESSORS
+    // ================================
+
+    // Hiển thị giá gốc format đẹp
+    public function getOriginalPriceDisplayAttribute()
+    {
+        return number_format($this->original_price, 0, ',', '.') . '₫';
+    }
+
+    // Hiển thị giá sale format đẹp
+    public function getSalePriceDisplayAttribute()
+    {
+        return number_format($this->sale_price, 0, ',', '.') . '₫';
+    }
+
+    // Hiển thị thuộc tính dạng: Size: 41 / Màu: Đỏ
+    public function getAttributeStringAttribute()
+    {
+        return $this->attributeValues
+            ->map(fn($av) => "{$av->attribute->name}: {$av->value}")
+            ->implode(' / ');
+    }
+
+    // ================================
+    // BUSINESS LOGIC
+    // ================================
+
+    // Kiểm tra còn hàng
+    public function isInStock(int $qty = 1): bool
+    {
+        return $this->stock_quantity >= $qty;
+    }
+
+    // Chuẩn hóa giá Flash Sale
+    public function getValidFlashSalePrice(float $flashSalePrice): float
+    {
+        // Nếu giá Flash Sale >= giá gốc thì tự set lại giảm 5%
+        return $flashSalePrice >= $this->original_price
+            ? $this->original_price * 0.95
+            : $flashSalePrice;
+    }
 }
