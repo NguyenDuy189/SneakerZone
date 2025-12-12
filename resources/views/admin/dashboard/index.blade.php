@@ -205,7 +205,7 @@
     <div class="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <h4 class="font-bold text-gray-800">Đơn hàng mới nhất</h4>
-            <a href="#" class="text-sm text-blue-600 hover:underline">Xem tất cả &rarr;</a>
+            <a href="{{ route('admin.orders.index') }}" class="text-sm text-blue-600 hover:underline">Xem tất cả &rarr;</a>
         </div>
         <div class="w-full overflow-x-auto">
             <table class="w-full whitespace-no-wrap">

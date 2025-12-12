@@ -19,6 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('parent_id')->nullable();
             $table->foreign('parent_id')->references('id')->on('categories')->onDelete('set null');
             $table->integer('level')->default(0);
+            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->string('image_url')->nullable();
             $table->boolean('is_visible')->default(true);
             $table->timestamps();

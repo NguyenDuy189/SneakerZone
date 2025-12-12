@@ -3,75 +3,101 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
+use App\Models\Category;
 use Illuminate\Http\Request;
-use App\Models\Product; // Import Model Product
 
 class ProductController extends Controller
 {
     /**
-     * Hiển thị danh sách sản phẩm (Product Listing)
+     * Trang Cửa hàng / Danh sách sản phẩm (Shop Page)
+     * Hỗ trợ: Tìm kiếm, Lọc theo Danh mục, Giá, Sắp xếp
      */
-    public function index()
-{
-    // --- 1. Tất cả sản phẩm (Lấy cả 'published' và 1) ---
-    // Dùng whereIn để chấp nhận cả 2 kiểu status
-    $products = Product::whereIn('status', [1, 'published'])->latest()->get();
+    public function index(Request $request)
+    {
+        // 1. Khởi tạo Query (Chỉ lấy sản phẩm Published)
+        $query = Product::where('status', 'published');
 
-    // --- 2. Sản phẩm nổi bật / sale ---
-    $featuredProducts = Product::whereIn('status', [1, 'published'])
-                            ->where('is_featured', 1)
-                            ->take(8)
-                            ->get();
+        // 2. Xử lý Tìm kiếm (Keyword)
+        if ($request->filled('keyword')) {
+            $keyword = trim($request->keyword);
+            $query->where(function($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                  ->orWhere('sku', 'like', "%{$keyword}%");
+            });
+        }
 
-    // --- 3. Sản phẩm mới ---
-    $newProducts = Product::whereIn('status', [1, 'published'])
-                        ->orderBy('created_at', 'desc')
-                        ->take(8)
-                        ->get();
+        // 3. Lọc theo Danh mục (Category)
+        if ($request->filled('category')) {
+            $slug = $request->category;
+            $query->whereHas('category', function($q) use ($slug) {
+                $q->where('slug', $slug);
+            });
+        }
 
-    // --- 4. SỬA LỖI QUAN TRỌNG: Sản phẩm chạy bộ ---
-    $runningProducts = Product::whereIn('status', [1, 'published']) // Sửa status
-                            ->whereHas('categories', function ($q) {
-                                // Dùng 'like' để tìm tất cả danh mục có chứa chữ "chay-bo"
-                                // (Bao gồm cả 'chay-bo-giay-nam' và 'chay-bo-giay-nu')
-                                $q->where('slug', 'like', '%chay-bo%'); 
-                            })
-                            ->take(8)
-                            ->get();
+        // 4. Lọc theo Khoảng giá (Price Range)
+        if ($request->filled('min_price')) {
+            $query->where('price_min', '>=', (int)$request->min_price);
+        }
+        if ($request->filled('max_price')) {
+            $query->where('price_min', '<=', (int)$request->max_price);
+        }
 
-    // --- 5. Sản phẩm bán chạy ---
-    $bestSellerProducts = Product::whereIn('status', [1, 'published'])
-                            ->inRandomOrder()
-                            ->take(8)
-                            ->get();
+        // 5. Sắp xếp (Sorting)
+        // validate chặt chẽ giá trị sort để tránh lỗi SQL
+        $sort = $request->get('sort', 'latest');
+        switch ($sort) {
+            case 'price_asc':
+                $query->orderBy('price_min', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price_min', 'desc');
+                break;
+            case 'name_asc':
+                $query->orderBy('name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('name', 'desc');
+                break;
+            default: // latest
+                $query->latest();
+                break;
+        }
 
-    return view('client.product.index', compact(
-        'products', 
-        'featuredProducts',
-        'newProducts',
-        'runningProducts',
-        'bestSellerProducts'
-    ));
-}
+        // 6. Phân trang (Pagination)
+        // Giữ lại các tham số filter trên URL khi chuyển trang (appends)
+        $products = $query->with('category')->paginate(12)->withQueryString();
+
+        // Lấy danh mục để hiển thị sidebar lọc (nếu cần)
+        $categories = Category::where('status', 'active')->get();
+
+        return view('client.product.index', compact('products', 'categories'));
+    }
 
     /**
-     * Hiển thị chi tiết một sản phẩm (Product Detail)
+     * Chi tiết sản phẩm (Product Detail)
      */
     public function show($slug)
     {
-        // 1. Tìm sản phẩm theo 'slug'
-        // 'slug' là trường giúp tạo URL thân thiện. Nếu bạn dùng 'id' thì thay $slug bằng $id
+        // 1. Tìm sản phẩm (Eager Loading quan hệ để tối ưu)
         $product = Product::where('slug', $slug)
-                          ->where('status', 1)
-                          ->firstOrFail(); // firstOrFail sẽ tự động trả về 404 nếu không tìm thấy
+            ->where('status', 'published')
+            // Load các quan hệ: Ảnh gallery, Danh mục, Biến thể (Size/Màu), Đánh giá
+            ->with(['gallery_images', 'category', 'variants', 'reviews.user'])
+            ->firstOrFail(); // Trả về 404 đẹp mắt nếu không tìm thấy
 
-        // 2. Lấy thêm các sản phẩm liên quan (ví dụ: cùng danh mục)
-        $relatedProducts = Product::where('id', '!=', $product->id)
-                          ->inRandomOrder() // Lấy ngẫu nhiên
-                          ->limit(4)
-                          ->get();
+        // 2. Logic Sản phẩm liên quan (Related Products)
+        // Tìm sản phẩm cùng danh mục, trừ sản phẩm đang xem
+        $relatedProducts = Product::where('status', 'published')
+            ->where('category_id', $product->category_id)
+            ->where('id', '!=', $product->id)
+            ->inRandomOrder()
+            ->limit(4)
+            ->get();
 
-        // 3. Trả về View cùng với dữ liệu chi tiết
+        // 3. Logic "Đã xem gần đây" (Optional - Dùng Session)
+        // Có thể bổ sung logic lưu ID sản phẩm vào session để hiển thị "Recently Viewed"
+
         return view('client.product.detail', compact('product', 'relatedProducts'));
     }
 }

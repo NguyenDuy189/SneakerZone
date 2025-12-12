@@ -145,13 +145,13 @@
                         <!-- Hành động -->
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-3">
-                                <a href="{{ route('admin.categories.edit', $cat->id) }}" class="text-indigo-600 hover:text-indigo-900" title="Sửa">
+                                <a href="{{ route('admin.categories.edit', $cat->id) }}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm" title="Sửa">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </a>
                                 <form action="{{ route('admin.categories.destroy', $cat->id) }}" method="POST" onsubmit="return confirm('Bạn chắc chắn muốn xóa danh mục này?');">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-900" title="Xóa">
+                                    <button type="submit"  class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all shadow-sm" title="Xóa">
                                         <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </form>

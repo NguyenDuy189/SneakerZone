@@ -15,9 +15,36 @@ class BrandController extends Controller
 {
     public function index()
     {
-        $brands = Brand::latest()->paginate(10);
+        $query = Brand::query();
+
+        // 1. Tìm kiếm theo keyword
+        if ($keyword = request('keyword')) {
+            $query->where('name', 'like', "%{$keyword}%");
+        }
+
+        // 2. Sắp xếp
+        $sort = request('sort', 'newest'); // default: newest
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('created_at', 'asc');
+                break;
+            case 'name_asc':
+                $query->orderBy('name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('name', 'desc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('created_at', 'desc');
+                break;
+        }
+
+        $brands = $query->paginate(10)->withQueryString();
+
         return view('admin.brands.index', compact('brands'));
     }
+
 
     public function create()
     {

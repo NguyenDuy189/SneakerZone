@@ -10,25 +10,23 @@ class ProductSeeder extends Seeder
 {
     public function run()
     {
-        // =====================================================
+        // ===========================
         // 1. XÓA DỮ LIỆU CŨ
-        // =====================================================
+        // ===========================
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        DB::table('products')->truncate();
-        DB::table('product_categories')->truncate();
+        DB::table('product_images')->truncate();
         DB::table('product_variants')->truncate();
-        DB::table('variant_attribute_values')->truncate();
+        DB::table('product_categories')->truncate();
+        DB::table('products')->truncate();
         DB::table('inventory_logs')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // =====================================================
+        // ===========================
         // 2. LẤY DỮ LIỆU NỀN
-        // =====================================================
-
+        // ===========================
         $nikeId = DB::table('brands')->where('name', 'Nike')->value('id') ?? 1;
-        $dasId  = DB::table('brands')->where('name', 'Adidas')->value('id') ?? 2;
+        $adidasId = DB::table('brands')->where('name', 'Adidas')->value('id') ?? 2;
 
-        // Lấy các Size
         $sizeIds = DB::table('attribute_values')
             ->whereIn('value', ['40', '41', '42'])
             ->pluck('id')
@@ -39,103 +37,96 @@ class ProductSeeder extends Seeder
             return;
         }
 
-        // Tạo map category để tối ưu truy vấn
         $categoryMap = DB::table('categories')
             ->select('id', 'name')
             ->get()
             ->mapWithKeys(fn($c) => [Str::lower($c->name) => $c->id])
             ->toArray();
 
-
-        // =====================================================
-        // 3. DANH SÁCH SẢN PHẨM
-        // =====================================================
-
-        $realShoes = [
-            ['name' => 'Nike Air Force 1 Low 07',        'brand' => $nikeId, 'price' => 2900000, 'cat' => 'Lifestyle'],
-            ['name' => 'Nike Air Jordan 1 High Chicago', 'brand' => $nikeId, 'price' => 5500000, 'cat' => 'Bóng Rổ'],
-            ['name' => 'Nike Pegasus 40',                'brand' => $nikeId, 'price' => 3500000, 'cat' => 'Chạy Bộ'],
-            ['name' => 'Nike Dunk Low Panda',            'brand' => $nikeId, 'price' => 3200000, 'cat' => 'Lifestyle'],
-            ['name' => 'Nike Zoom Fly 5',                'brand' => $nikeId, 'price' => 4100000, 'cat' => 'Chạy Bộ'],
-
-            ['name' => 'Adidas Ultraboost Light',        'brand' => $dasId,  'price' => 4500000, 'cat' => 'Chạy Bộ'],
-            ['name' => 'Adidas Stan Smith',              'brand' => $dasId,  'price' => 2500000, 'cat' => 'Lifestyle'],
-            ['name' => 'Adidas Superstar',               'brand' => $dasId,  'price' => 2600000, 'cat' => 'Lifestyle'],
-            ['name' => 'Adidas Forum Low',               'brand' => $dasId,  'price' => 2800000, 'cat' => 'Bóng Rổ'],
-            ['name' => 'Adidas Yeezy Boost 350 V2',      'brand' => $dasId,  'price' => 6500000, 'cat' => 'Lifestyle'],
+        // ===========================
+        // 3. DANH SÁCH TÊN SẢN PHẨM MẪU
+        // ===========================
+        $productBaseNames = [
+            'Air Force', 'Air Max', 'Jordan', 'Pegasus', 'Ultraboost', 
+            'Stan Smith', 'Cortez', 'React Infinity', 'Zoom Fly', 'Blazer',
+            'Superstar', 'NMD', 'Gazelle', 'Yeezy Boost', 'Adizero', 
+            'KD', 'LeBron', 'Metcon', 'Flyknit', 'Epic React'
         ];
 
-        // =====================================================
-        // 4. VÒNG LẶP TẠO SẢN PHẨM
-        // =====================================================
+        $brands = [$nikeId, $adidasId];
+        $categories = array_keys($categoryMap);
 
-        foreach ($realShoes as $shoe) {
+        $products = [];
 
-            // Tìm Category phù hợp
-            $catKey = Str::lower($shoe['cat']);
-            $catId = $categoryMap[$catKey] ?? array_values($categoryMap)[0];
+        // Tạo 25 sản phẩm ngẫu nhiên
+        for ($i = 0; $i < 25; $i++) {
+            $brand = $brands[array_rand($brands)];
+            $name = ($brand == $nikeId ? 'Nike ' : 'Adidas ') . $productBaseNames[array_rand($productBaseNames)] . ' ' . rand(2020, 2025);
+            $price = rand(2000000, 6000000);
+            $cat = $categories[array_rand($categories)];
 
-            // A. Tạo PRODUCT
+            $products[] = ['name' => $name, 'brand' => $brand, 'price' => $price, 'cat' => $cat];
+        }
+
+        // ===========================
+        // 4. TẠO SẢN PHẨM & VARIANTS
+        // ===========================
+        foreach ($products as $p) {
+            $catId = $categoryMap[$p['cat']] ?? array_values($categoryMap)[0];
+
+            // A. Tạo product
             $productId = DB::table('products')->insertGetId([
-                'name'              => $shoe['name'],
-                'slug'              => Str::slug($shoe['name']),
+                'name'              => $p['name'],
+                'slug'              => Str::slug($p['name'] . '-' . Str::random(4)),
                 'sku_code'          => 'SP-' . strtoupper(Str::random(6)),
-                'brand_id'          => $shoe['brand'],
+                'brand_id'          => $p['brand'],
                 'category_id'       => $catId,
-                'description'       => '<p>Mô tả chi tiết về ' . $shoe['name'] . ' chính hãng...</p>',
-                'short_description' => $shoe['name'] . ' - Hàng chính hãng, full box.',
-                'price_min'         => $shoe['price'],
+                'description'       => '<p>Mô tả chi tiết ' . $p['name'] . '</p>',
+                'short_description' => $p['name'] . ' - Hàng chính hãng.',
+                'price_min'         => $p['price'],
                 'status'            => 'published',
-                'is_featured'       => ($shoe['price'] > 4000000),
+                'is_featured'       => $p['price'] > 4000000,
                 'thumbnail'         => '/img/products/demo.jpg',
                 'created_at'        => now(),
                 'updated_at'        => now(),
             ]);
 
-            // B. Gắn vào PRODUCT_CATEGORY
+            // B. Gắn product_category
             DB::table('product_categories')->insert([
                 'product_id'  => $productId,
-                'category_id' => $catId
+                'category_id' => $catId,
             ]);
 
-            // C. Tạo các biến thể Size
-            foreach ($sizeIds as $sId) {
+            // C. Tạo variants
+            foreach ($sizeIds as $sizeId) {
+                $sizeValue = DB::table('attribute_values')->where('id', $sizeId)->value('value');
+                $stockQty = rand(10, 50);
 
-                $sizeName = DB::table('attribute_values')->where('id', $sId)->value('value');
-                $initialStock = rand(10, 50);
-
-                // 1. Variant
                 $variantId = DB::table('product_variants')->insertGetId([
                     'product_id'     => $productId,
-                    'sku'            => 'SKU-' . $productId . '-SZ' . $sizeName,
-                    'name'           => $shoe['name'] . ' - Size ' . $sizeName,
-                    'original_price' => $shoe['price'] + 500000,
-                    'sale_price'     => $shoe['price'],
-                    'stock_quantity' => $initialStock,
+                    'sku'            => 'SKU-' . $productId . '-SZ' . $sizeValue,
+                    'name'           => $p['name'] . ' - Size ' . $sizeValue,
+                    'original_price' => $p['price'] + rand(200000, 500000),
+                    'sale_price'     => $p['price'],
+                    'stock_quantity' => $stockQty,
                     'image_url'      => '/img/products/demo.jpg',
                     'created_at'     => now(),
                     'updated_at'     => now(),
                 ]);
 
-                // 2. Gắn thuộc tính Size
-                DB::table('variant_attribute_values')->insert([
-                    'product_variant_id' => $variantId,
-                    'attribute_value_id' => $sId
-                ]);
-
-                // 3. Log nhập kho
+                // D. Log tồn kho
                 DB::table('inventory_logs')->insert([
                     'product_variant_id' => $variantId,
-                    'user_id'            => 1,
-                    'change_amount'      => $initialStock,
-                    'old_quantity'       => 0,
-                    'new_quantity'       => $initialStock,
+                    'change_amount'      => $stockQty,
+                    'remaining_stock'    => $stockQty,
                     'type'               => 'import',
-                    'note'               => 'Khởi tạo tồn kho đầu kỳ (Seeder)',
+                    'note'               => 'Seeder khởi tạo tồn kho',
                     'created_at'         => now(),
                     'updated_at'         => now(),
                 ]);
             }
         }
+
+        $this->command->info('Seeder đã tạo ' . count($products) . ' sản phẩm thành công!');
     }
 }

@@ -191,7 +191,7 @@
                                 <form action="{{ route('admin.products.destroy', $product->id) }}" method="POST" onsubmit="return confirm('Bạn có chắc chắn muốn chuyển sản phẩm này vào thùng rác?');">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-100 shadow-sm" title="Xóa tạm">
-                                        <i class="fa-solid fa-trash-can"></i>
+                                        <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </form>
                             </div>

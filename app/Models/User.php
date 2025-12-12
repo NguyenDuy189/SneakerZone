@@ -7,34 +7,36 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes; // 1. Thêm SoftDeletes
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes; // 2. Sử dụng Trait
 
     // ==========================================================
-    // ROLES (Định nghĩa vai trò để quản lý quyền)
+    // ROLES
     // ==========================================================
 
-    const ROLE_ADMIN  = 'admin';
-    const ROLE_USER   = 'user';
-    const ROLE_SHIPPER = 'shipper';
+    const ROLE_ADMIN    = 'admin';
+    const ROLE_STAFF    = 'staff';     // Thêm Staff nếu cần phân quyền nhân viên
+    const ROLE_CUSTOMER = 'customer';  // 3. Đổi ROLE_USER -> ROLE_CUSTOMER cho khớp Controller
+    const ROLE_SHIPPER  = 'shipper';
 
     // ==========================================================
     // FILLABLE
     // ==========================================================
 
     protected $fillable = [
-        'name',
+        'full_name', // 4. Đổi 'name' -> 'full_name' cho khớp Controller
         'email',
         'password',
         'phone',
         'avatar',
         'role',
-        'status',
-        'address',
+        'status',    // active/banned
         'gender',
         'birthday',
+        'address',   // Địa chỉ nhanh (nếu có)
     ];
 
     // ==========================================================
@@ -75,19 +77,19 @@ class User extends Authenticatable
         return $this->hasMany(Review::class, 'user_id');
     }
 
-    // User có nhiều địa chỉ
+    // User có nhiều sổ địa chỉ
     public function addresses(): HasMany
     {
         return $this->hasMany(UserAddress::class);
     }
 
-    // Địa chỉ mặc định
+    // Lấy địa chỉ mặc định (trả về 1 object)
     public function defaultAddress(): HasOne
     {
         return $this->hasOne(UserAddress::class)->where('is_default', true);
     }
 
-    // Shipper có nhiều đơn hàng được gán
+    // Shipper giao nhiều đơn
     public function shippingOrders(): HasMany
     {
         return $this->hasMany(Order::class, 'shipper_id');
@@ -98,51 +100,53 @@ class User extends Authenticatable
     // ==========================================================
 
     /**
-     * Lấy avatar URL của user
+     * Lấy avatar URL (Accessor: $user->avatar_url)
      */
     public function getAvatarUrlAttribute(): string
     {
-        if ($this->avatar) {
+        // Nếu có ảnh trong storage
+        if ($this->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->avatar)) {
             return asset('storage/' . $this->avatar);
         }
 
-        // Avatar tự tạo theo tên
-        $name = urlencode($this->name ?? 'User');
-
+        // Nếu không có, tạo ảnh theo tên (full_name)
+        $name = urlencode($this->full_name ?? 'User');
         return "https://ui-avatars.com/api/?name={$name}&background=random&color=fff";
     }
 
     /**
-     * Tổng tiền user đã chi (chỉ tính đơn đã thanh toán)
+     * Tổng tiền đã chi tiêu (Accessor: $user->total_spent)
+     * Chỉ tính đơn đã thanh toán ('paid')
      */
     public function getTotalSpentAttribute(): float
     {
+        // Lưu ý: Nếu user có quá nhiều đơn, gọi $this->orders sẽ load hết vào RAM.
+        // Cách tối ưu hơn nếu dùng nhiều là dùng relationship aggregate (withSum)
         return $this->orders
             ->where('payment_status', 'paid')
-            ->sum('grand_total');
+            ->sum('total_amount'); // 5. Đổi 'grand_total' -> 'total_amount'
     }
 
     /**
-     * Kiểm tra có phải admin
+     * Check Roles
      */
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
     }
 
-    /**
-     * Kiểm tra shipper
-     */
+    public function isStaff(): bool
+    {
+        return $this->role === self::ROLE_STAFF;
+    }
+
     public function isShipper(): bool
     {
         return $this->role === self::ROLE_SHIPPER;
     }
 
-    /**
-     * Kiểm tra user thường
-     */
     public function isCustomer(): bool
     {
-        return $this->role === self::ROLE_USER;
+        return $this->role === self::ROLE_CUSTOMER;
     }
 }

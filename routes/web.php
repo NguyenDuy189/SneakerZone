@@ -1,13 +1,17 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-// use Illuminate\Support\Facades\Auth;
 
-use App\Http\Controllers\Client\ProductController;
-// ADMIN CONTROLLERS
+/*
+|--------------------------------------------------------------------------
+| IMPORT CONTROLLERS
+|--------------------------------------------------------------------------
+*/
+use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\BrandController;
+use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ReviewController;
@@ -20,171 +24,137 @@ use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\FlashSaleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\BannerController;
-
-
+use App\Http\Controllers\Admin\DiscountController;
+use App\Http\Controllers\Client\HomeController;
+use App\Http\Controllers\Client\ProductController;
+use App\Http\Middleware\CheckRole;
 
 /*
 |--------------------------------------------------------------------------
-| WEB ROUTES
+| 1. CLIENT ROUTES (PUBLIC)
 |--------------------------------------------------------------------------
 */
-
-// -------------------------------------------------------------------------
-// CLIENT (Tạm thời redirect về admin)
-// -------------------------------------------------------------------------
-Route::get('/', function () {
-    return redirect()->route('admin.dashboard');
-})->name('home');
-//client 
-        // 1. Danh sách sản phẩm (VD: /products)
-        Route::get('/client-products', [ProductController::class, 'index'])->name('client.products.index');
-
-        // 2. Chi tiết sản phẩm (VD: /products/ten-san-pham-a)
-        // Dùng {slug} để truyền tên sản phẩm thân thiện qua URL
-        Route::get('/products/{slug}', [ProductController::class, 'show'])->name('client.products.show');
-
-        // Lưu ý: Nếu trang chủ của bạn đã có hiển thị sản phẩm, bạn có thể thêm logic lấy sản phẩm vào HomeController.
-// -------------------------------------------------------------------------
-// ADMIN AREA
-// -------------------------------------------------------------------------
-Route::prefix('admin')
-    ->name('admin.')
-    //->middleware(['auth', 'is_admin']) // Nếu bạn có middleware phân quyền
-    ->group(function () {
-
-        // ================================================================
-        // 1. DASHBOARD
-        // ================================================================
-        Route::get('/dashboard', [DashboardController::class, 'index'])
-            ->name('dashboard');
-
-
-        // ================================================================
-        // 2. ORDERS (Đơn hàng)
-        // ================================================================
-
-        // Custom trước
-        Route::get('orders/{id}/print', [OrderController::class, 'print'])
-            ->name('orders.print');
-
-        Route::put('orders/{id}/status', [OrderController::class, 'updateStatus'])
-            ->name('orders.update_status');
-
-        // Chỉ index + show
-        Route::resource('orders', OrderController::class)
-            ->only(['index', 'show']);
-
-
-        // ================================================================
-        // 3. BRANDS (Thương hiệu)
-        // ================================================================
-        Route::resource('brands', BrandController::class);
-
-
-        // ================================================================
-        // 4. CATEGORIES (Danh mục)
-        // ================================================================
-        Route::resource('categories', CategoryController::class);
-
-
-        // ================================================================
-        // 5. ATTRIBUTES (Thuộc tính & Giá trị)
-        // ================================================================
-
-        // CRUD thuộc tính cha
-        Route::resource('attributes', AttributeController::class)
-            ->except(['create', 'edit', 'update']);
-
-        // CRUD giá trị con
-        Route::post('attributes/{id}/values', [AttributeController::class, 'storeValue'])
-            ->name('attributes.values.store');
-
-        Route::delete('attributes/values/{id}', [AttributeController::class, 'destroyValue'])
-            ->name('attributes.values.destroy');
-
-
-        // ================================================================
-        // 6. PRODUCTS (Sản phẩm)
-        // ================================================================
-
-        // --- TRASH ---
-        Route::get('products/trash', [ProductController::class, 'trash'])
-            ->name('products.trash');
-
-        Route::post('products/{id}/restore', [ProductController::class, 'restore'])
-            ->name('products.restore');
-
-        Route::delete('products/{id}/force-delete', [ProductController::class, 'forceDelete'])
-            ->name('products.force_delete');
-
-        // --- VARIANTS ---
-        Route::post('products/{id}/variants', [ProductController::class, 'storeVariant'])
-            ->name('products.variants.store');
-
-        Route::put('products/variants/{variant_id}', [ProductController::class, 'updateVariant'])
-            ->name('products.variants.update');
-
-        Route::delete('products/variants/{variant_id}', [ProductController::class, 'destroyVariant'])
-            ->name('products.variants.destroy');
-
-        // --- PRODUCTS CRUD (để cuối cùng) ---
-        Route::resource('products', ProductController::class);
-
-
-        // ================================================================
-        // 7. REVIEWS (Đánh giá)
-        // ================================================================
-
-        // Trang danh sách review (admin)
-        Route::prefix('reviews')->name('reviews.')->group(function () {
-
-        Route::get('/', [\App\Http\Controllers\Admin\ReviewController::class, 'index'])
-            ->name('index');
-
-        Route::get('/reviews/approve/{id}', [ReviewController::class, 'approve'])
-        ->name('show');
-
-
-        Route::post('/reject/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'reject'])
-            ->name('reject');
-
-        Route::delete('/{id}', [\App\Http\Controllers\Admin\ReviewController::class, 'destroy'])
-            ->name('destroy');
-        
-
-        
+Route::name('client.')->group(function() {
+    Route::get('/', [HomeController::class, 'index'])->name('home');
+    
+    // Sản phẩm
+    Route::prefix('shop')->name('products.')->group(function() {
+        Route::get('/', [ProductController::class, 'index'])->name('index');
+        Route::get('/{slug}', [ProductController::class, 'show'])->name('show');
     });
 
-        // B. Items & Statistics Management
-        Route::controller(FlashSaleController::class)->prefix('flash-sales/{flash_sale}')->name('flash_sales.')->group(function() {
-            Route::get('items', 'items')->name('items');
-            Route::post('items', 'addItem')->name('items.store');
-            Route::put('items/{item}', 'updateItem')->name('items.update');
-            Route::delete('items/{item}', 'removeItem')->name('items.destroy');
-            Route::get('statistics', 'statistics')->name('statistics');
+    // Client Auth (Placeholder - nếu sau này phát triển)
+    // Route::get('login', [ClientAuthController::class, 'showLoginForm'])->name('login');
+});
+
+/*
+|--------------------------------------------------------------------------
+| 2. ADMIN AUTH ROUTES (GUEST)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('login', [AdminAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('login', [AdminAuthController::class, 'login'])->name('login.submit');
+    Route::post('logout', [AdminAuthController::class, 'logout'])->name('logout');
+});
+
+/*
+|--------------------------------------------------------------------------
+| 3. ADMIN PROTECTED ROUTES (AUTH + ROLE CHECK)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('admin')
+    ->name('admin.')
+    ->middleware(['auth', CheckRole::class . ':admin,staff']) // Bảo vệ Admin & Staff
+    ->group(function () {
+
+        // =================================================================
+        // DASHBOARD
+        // =================================================================
+        Route::get('/', fn() => redirect()->route('admin.dashboard')); // Redirect root admin
+        Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+        // =================================================================
+        // ORDER MANAGEMENT
+        // =================================================================
+        Route::controller(OrderController::class)->prefix('orders')->name('orders.')->group(function () {
+            Route::get('{id}/print', 'print')->name('print');
+            Route::put('{id}/status', 'updateStatus')->name('update_status');
         });
-
-        // C. UX Redirect (View -> Items)
-        Route::get('flash-sales/{flash_sale}', fn($id) => redirect()->route('admin.flash_sales.items', $id))
-            ->name('flash_sales.show');
-
-        // D. Main Resource
-        Route::resource('flash-sales', FlashSaleController::class)
-            ->names('flash_sales') // Force route names to use underscore (admin.flash_sales.index)
-            ->except(['show']);
+        Route::resource('orders', OrderController::class)->only(['index', 'show']);
 
         // =================================================================
-        // 6. CUSTOMER & REVIEWS
+        // PRODUCT CATALOG
         // =================================================================
+        Route::controller(AdminProductController::class)->prefix('products')->name('products.')->group(function () {
+            // Trash
+            Route::get('trash', 'trash')->name('trash');
+            Route::post('{id}/restore', 'restore')->name('restore');
+            Route::delete('{id}/force-delete', 'forceDelete')->name('force_delete');
+            
+            // Variants
+            Route::post('{id}/variants', 'storeVariant')->name('variants.store');
+            Route::put('variants/{variant_id}', 'updateVariant')->name('variants.update');
+            Route::delete('variants/{variant_id}', 'destroyVariant')->name('variants.destroy');
+        });
+        Route::resource('products', AdminProductController::class);
+
+        Route::resource('categories', CategoryController::class);
+        Route::resource('brands', BrandController::class);
+
+        Route::controller(AttributeController::class)->prefix('attributes')->name('attributes.')->group(function () {
+            Route::post('{id}/values', 'storeValue')->name('values.store');
+            Route::delete('values/{id}', 'destroyValue')->name('values.destroy');
+        });
+        Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']);
+
         Route::controller(ReviewController::class)->prefix('reviews')->name('reviews.')->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::get('{id}', 'show')->name('show');
             Route::put('{id}/approve', 'approve')->name('approve');
             Route::delete('{id}', 'destroy')->name('destroy');
         });
 
-        // --- KHÁCH HÀNG & SỔ ĐỊA CHỈ (Đã sửa hoàn chỉnh) ---
+        // =================================================================
+        // MARKETING TOOLS
+        // =================================================================
+        Route::resource('discounts', DiscountController::class);
+        Route::resource('banners', BannerController::class);
+
+        // Flash Sales
+        // 1. Route Tìm kiếm sản phẩm (THÊM DÒNG NÀY)
+        // Đặt nó lên đầu để tránh bị nhầm lẫn với các tham số {id}
+        Route::get('flash-sales/search-products', [FlashSaleController::class, 'searchProductVariants'])
+            ->name('flash_sales.product_search');
+
+        // 2. Các Route quản lý Items (Nested)
+        Route::controller(FlashSaleController::class)
+            ->prefix('flash-sales/{flash_sale}')
+            ->name('flash_sales.')
+            ->whereNumber('flash_sale') // Chỉ nhận ID là số
+            ->group(function () {
+                Route::get('items', 'items')->name('items');
+                Route::post('items', 'addItem')->name('items.store');
+                Route::put('items/{item}', 'updateItem')->name('items.update');
+                Route::delete('items/{item}', 'removeItem')->name('items.destroy');
+                Route::get('statistics', 'statistics')->name('statistics');
+            });
+
+        // 3. Redirect UX (Click tên -> vào items)
+        Route::get('flash-sales/{flash_sale}', fn($id) => redirect()->route('admin.flash_sales.items', $id))
+            ->whereNumber('flash_sale')
+            ->name('flash_sales.show');
+
+        // 4. Resource chính (CRUD Flash Sale)
+        Route::resource('flash-sales', FlashSaleController::class)
+            ->names('flash_sales')
+            ->except(['show']);
+
+        // =================================================================
+        // CUSTOMERS
+        // =================================================================
         Route::controller(CustomerUserController::class)->prefix('customers')->name('customers.')->group(function () {
-            // CRUD Khách hàng
+            // CRUD Customer
             Route::get('/', 'index')->name('index');
             Route::get('create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
@@ -194,16 +164,16 @@ Route::prefix('admin')
             Route::put('{id}/status', 'updateStatus')->name('update_status');
             Route::delete('{id}', 'destroy')->name('destroy');
 
-            // CRUD Địa chỉ (Addresses) - Nested Routes
-            Route::get('{id}/addresses/create', 'createAddress')->name('addresses.create');     // Form thêm địa chỉ
-            Route::post('{id}/addresses', 'storeAddress')->name('addresses.store');             // Lưu địa chỉ mới
-            Route::get('{id}/addresses/{address_id}/edit', 'editAddress')->name('addresses.edit'); // Form sửa địa chỉ
-            Route::put('{id}/addresses/{address_id}', 'updateAddress')->name('addresses.update');  // Lưu sửa địa chỉ
-            Route::delete('{id}/addresses/{address_id}', 'deleteAddress')->name('addresses.destroy'); // Xóa địa chỉ
+            // Customer Addresses
+            Route::get('{id}/addresses/create', 'createAddress')->name('addresses.create');
+            Route::post('{id}/addresses', 'storeAddress')->name('addresses.store');
+            Route::get('{id}/addresses/{address_id}/edit', 'editAddress')->name('addresses.edit');
+            Route::put('{id}/addresses/{address_id}', 'updateAddress')->name('addresses.update');
+            Route::delete('{id}/addresses/{address_id}', 'deleteAddress')->name('addresses.destroy');
         });
 
         // =================================================================
-        // 7. INVENTORY & SUPPLIERS
+        // INVENTORY & SUPPLIERS
         // =================================================================
         Route::resource('suppliers', SupplierController::class);
 
@@ -218,7 +188,7 @@ Route::prefix('admin')
         Route::get('inventory/logs', [InventoryLogController::class, 'index'])->name('inventory.logs.index');
 
         // =================================================================
-        // 8. SHIPPING MANAGEMENT
+        // SHIPPING
         // =================================================================
         Route::controller(ShippingController::class)->prefix('shipping')->name('shipping.')->group(function () {
             Route::get('/', 'index')->name('index');
@@ -226,12 +196,10 @@ Route::prefix('admin')
             Route::post('store', 'store')->name('store');
             Route::get('trash', 'trash')->name('trash');
             
-            // Routes with ID parameter
-            Route::prefix('{shipping}')->group(function() {
+            Route::prefix('{shipping}')->group(function () {
                 Route::get('show', 'show')->name('show');
                 Route::post('restore', 'restore')->name('restore');
                 Route::delete('destroy', 'destroy')->name('destroy');
-                
                 Route::get('assign', 'assignForm')->name('assign');
                 Route::post('assign', 'assign')->name('assign.submit');
                 Route::put('status', 'updateStatus')->name('update_status');
@@ -239,17 +207,14 @@ Route::prefix('admin')
         });
 
         // =================================================================
-        // 9. SYSTEM ADMINISTRATION (Users & Settings)
+        // SYSTEM SETTINGS
         // =================================================================
         Route::resource('users', AdminUserController::class)->names('users');
-
+        
         Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('edit', 'edit')->name('edit');
             Route::post('update', 'update')->name('update');
         });
 
-
-        Route::resource('banners', BannerController::class);
-
-    }); // End Admin Routes Group
+    }); // End Admin Group

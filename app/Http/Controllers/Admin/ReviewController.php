@@ -70,6 +70,14 @@ class ReviewController extends Controller
         return view('admin.reviews.index', compact('reviews'));
     }
 
+    public function show($id)
+    {
+        // Eager load product và user để hiển thị thông tin chi tiết
+        $review = \App\Models\Review::with(['product', 'user'])->findOrFail($id);
+
+        return view('admin.reviews.show', compact('review'));
+    }
+
     /**
      * Lưu đánh giá (User gửi)
      */

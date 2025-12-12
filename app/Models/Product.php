@@ -45,4 +45,24 @@ class Product extends Model
     {
         return $this->hasMany(ProductVariant::class);
     }
+
+    // Quan hệ: 1 Sản phẩm thuộc 1 Danh mục
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    // Quan hệ: 1 Sản phẩm có nhiều Ảnh Gallery (Bảng product_images)
+    public function gallery_images()
+    {
+        return $this->hasMany(ProductImage::class);
+    }
+
+    // Quan hệ: 1 Sản phẩm có nhiều Biến thể (Size/Color)
+
+    // Quan hệ: 1 Sản phẩm có nhiều Đánh giá
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
 }

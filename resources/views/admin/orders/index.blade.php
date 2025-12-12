@@ -80,7 +80,7 @@
                         placeholder="Tìm kiếm mã đơn, tên khách, SĐT...">
                 </div>
 
-                <div class="md:col-span-2">
+                <div class="md:col-span-3">
                     <select name="status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
                         <option value="">Tất cả trạng thái</option>
                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>🟡 Chờ xử lý</option>
@@ -91,16 +91,16 @@
                     </select>
                 </div>
 
-                <div class="md:col-span-2">
+                <div class="md:col-span-3">
                     <select name="payment_status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
-                        <option value="">Tình trạng TT</option>
+                        <option value="">Tình trạng thanh toán</option>
                         <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Đã thanh toán</option>
                         <option value="unpaid" {{ request('payment_status') == 'unpaid' ? 'selected' : '' }}>Chưa thanh toán</option>
                         <option value="refunded" {{ request('payment_status') == 'refunded' ? 'selected' : '' }}>Hoàn tiền</option>
                     </select>
                 </div>
 
-                <div class="md:col-span-4 flex gap-2 justify-end">
+                <div class="md:col-span-2 flex gap-2 justify-end">
                     <button type="submit" class="px-5 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center">
                         <i class="fa-solid fa-filter mr-2"></i> Lọc đơn
                     </button>

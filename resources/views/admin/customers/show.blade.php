@@ -344,6 +344,3 @@
     </div>
 </div>
 @endsection
-```
-
-Bạn hãy copy 2 file này vào đúng đường dẫn `resources/views/admin/customers/` nhé. Giao diện sẽ rất chuyên nghiệp và đồng bộ.

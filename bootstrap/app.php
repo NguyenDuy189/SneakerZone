@@ -10,9 +10,18 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
+    ->withMiddleware(function (Middleware $middleware) {
+        
+        // --- ĐĂNG KÝ ALIAS (BÍ DANH) TẠI ĐÂY ---
+        $middleware->alias([
+            'checkRole' => \App\Http\Middleware\CheckRole::class,
+        ]);
+        // ---------------------------------------
+
+        $middleware->redirectGuestsTo(function () {
+            return route('admin.login');
+        });
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
