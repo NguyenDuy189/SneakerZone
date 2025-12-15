@@ -112,13 +112,24 @@
     {{-- HEADER (PHẦN ĐẦU TRANG - ĐÃ SỬA GIỐNG ẢNH) --}}
     {{-- ================================================================ --}}
     
-    <div class="top-bar d-none d-md-block">
-        <div class="container-fluid px-4 d-flex justify-content-end">
-            <a href="#">Trợ giúp</a>
-            <a href="#">Tham gia với chúng tôi</a>
-            <a href="#">Đăng nhập</a>
-        </div>
+    <div class="header-icons d-flex align-items-center">
+
+    @auth
+        <a href="{{ route('account.index') }}" class="btn-icon">
+            <i class="far fa-user"></i>
+        </a>
+
+        <a href="{{ route('cart.index') }}" class="btn-icon">
+            <i class="fas fa-shopping-bag"></i>
+        </a>
+    @else
+        <a href="{{ route('login') }}" class="btn-icon">
+            <i class="far fa-user"></i>
+        </a>
+    @endauth
+
     </div>
+
 
     <nav class="navbar navbar-expand-lg main-header sticky-top">
         <div class="container-fluid px-4">
@@ -154,16 +165,32 @@
 
             <div class="header-icons d-flex align-items-center">
                 <div class="d-none d-lg-block me-3 position-relative">
-                    <input type="text" class="form-control rounded-pill bg-light border-0" placeholder="Tìm kiếm" style="padding-left: 35px; height: 35px;">
+                    <form action="{{ route('client.products.search') }}" method="GET" class="d-none d-lg-block me-3 position-relative">
+    <input 
+        type="text" 
+        name="q"
+        value="{{ request('q') }}"
+        class="form-control rounded-pill bg-light border-0"
+        placeholder="Tìm kiếm sản phẩm..."
+        style="padding-left: 35px; height: 35px; width: 200px;"
+    >
+    <i class="fas fa-search position-absolute text-muted" style="top: 10px; left: 12px;"></i>
+</form>
+
                     <i class="fas fa-search position-absolute text-muted" style="top: 10px; left: 12px;"></i>
                 </div>
                 
                 <a href="#" class="btn-icon"><i class="far fa-heart"></i></a>
-                <a href="#" class="btn-icon position-relative">
-                    <i class="fas fa-shopping-bag"></i>
-                    {{-- Badge số lượng giỏ hàng --}}
-                    {{-- <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 8px;">2</span> --}}
-                </a>
+                @auth
+    <a href="{{ route('cart.index') }}" class="btn-icon position-relative">
+        <i class="fas fa-shopping-bag"></i>
+    </a>
+@else
+    <a href="{{ route('login') }}" class="btn-icon position-relative">
+        <i class="fas fa-shopping-bag"></i>
+    </a>
+@endauth
+
             </div>
         </div>
     </nav>

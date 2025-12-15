@@ -4,74 +4,150 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Product; // Import Model Product
+use App\Models\Product;
 
 class ProductController extends Controller
 {
     /**
-     * Hiển thị danh sách sản phẩm (Product Listing)
+     * Hiển thị danh sách sản phẩm
      */
     public function index()
-{
-    // --- 1. Tất cả sản phẩm (Lấy cả 'published' và 1) ---
-    // Dùng whereIn để chấp nhận cả 2 kiểu status
-    $products = Product::whereIn('status', [1, 'published'])->latest()->get();
+    {
+        // 1. Danh sách tất cả sản phẩm hiển thị
+        $products = Product::whereIn('status', [1, 'published'])
+            ->latest()
+            ->get();
 
-    // --- 2. Sản phẩm nổi bật / sale ---
-    $featuredProducts = Product::whereIn('status', [1, 'published'])
-                            ->where('is_featured', 1)
-                            ->take(8)
-                            ->get();
+        // 2. Sản phẩm nổi bật
+        $featuredProducts = Product::whereIn('status', [1, 'published'])
+            ->where('is_featured', 1)
+            ->take(8)
+            ->get();
 
-    // --- 3. Sản phẩm mới ---
-    $newProducts = Product::whereIn('status', [1, 'published'])
-                        ->orderBy('created_at', 'desc')
-                        ->take(8)
-                        ->get();
+        // 3. Sản phẩm mới
+        $newProducts = Product::whereIn('status', [1, 'published'])
+            ->orderBy('created_at', 'desc')
+            ->take(8)
+            ->get();
 
-    // --- 4. SỬA LỖI QUAN TRỌNG: Sản phẩm chạy bộ ---
-    $runningProducts = Product::whereIn('status', [1, 'published']) // Sửa status
-                            ->whereHas('categories', function ($q) {
-                                // Dùng 'like' để tìm tất cả danh mục có chứa chữ "chay-bo"
-                                // (Bao gồm cả 'chay-bo-giay-nam' và 'chay-bo-giay-nu')
-                                $q->where('slug', 'like', '%chay-bo%'); 
-                            })
-                            ->take(8)
-                            ->get();
+        // 4. Sản phẩm chạy bộ
+        $runningProducts = Product::whereIn('status', [1, 'published'])
+            ->whereHas('categories', function ($q) {
+                $q->where('slug', 'like', '%chay-bo%');
+            })
+            ->take(8)
+            ->get();
 
-    // --- 5. Sản phẩm bán chạy ---
-    $bestSellerProducts = Product::whereIn('status', [1, 'published'])
-                            ->inRandomOrder()
-                            ->take(8)
-                            ->get();
+        // 5. Sản phẩm bán chạy
+        $bestSellerProducts = Product::whereIn('status', [1, 'published'])
+            ->inRandomOrder()
+            ->take(8)
+            ->get();
 
-    return view('client.product.index', compact(
-        'products', 
-        'featuredProducts',
-        'newProducts',
-        'runningProducts',
-        'bestSellerProducts'
-    ));
-}
+        // ⭐⭐ VIEW CHUẨN (đúng thư mục client/product/)
+        return view('client.product.index', compact(
+            'products',
+            'featuredProducts',
+            'newProducts',
+            'runningProducts',
+            'bestSellerProducts'
+        ));
+    }
 
     /**
-     * Hiển thị chi tiết một sản phẩm (Product Detail)
+     * Hiển thị chi tiết sản phẩm theo slug
      */
     public function show($slug)
     {
-        // 1. Tìm sản phẩm theo 'slug'
-        // 'slug' là trường giúp tạo URL thân thiện. Nếu bạn dùng 'id' thì thay $slug bằng $id
+        // Lấy đúng sản phẩm
         $product = Product::where('slug', $slug)
-                          ->where('status', 1)
-                          ->firstOrFail(); // firstOrFail sẽ tự động trả về 404 nếu không tìm thấy
+            ->whereIn('status', [1, 'published'])
+            ->firstOrFail();
 
-        // 2. Lấy thêm các sản phẩm liên quan (ví dụ: cùng danh mục)
+        // Sản phẩm liên quan
         $relatedProducts = Product::where('id', '!=', $product->id)
-                          ->inRandomOrder() // Lấy ngẫu nhiên
-                          ->limit(4)
-                          ->get();
+            ->inRandomOrder()
+            ->limit(4)
+            ->get();
 
-        // 3. Trả về View cùng với dữ liệu chi tiết
+        // ⭐⭐ VIEW CHUẨN (đúng thư mục client/product/)
         return view('client.product.detail', compact('product', 'relatedProducts'));
     }
+    //thanh tìm kiếm
+    public function search(Request $request)
+{
+    $keyword = $request->get('q');
+
+    $products = Product::whereIn('status', [1, 'published'])
+        ->where('name', 'like', '%' . $keyword . '%')
+        ->latest()
+        ->get();
+
+    return view('client.product.search', compact('products', 'keyword'));
+}
+
+//giỏ hàng
+public function addToCart($id)
+{
+    $product = Product::findOrFail($id);
+
+    $cart = session()->get('cart', []);
+
+    if (isset($cart[$id])) {
+        $cart[$id]['quantity']++;
+    } else {
+        $cart[$id] = [
+            'id' => $product->id,
+            'name' => $product->name,
+            'price' => $product->price_min,
+            'image' => $product->image,
+            'quantity' => 1
+        ];
+    }
+
+    session()->put('cart', $cart);
+
+    return back()->with('success', 'Đã thêm vào giỏ hàng');
+}
+
+public function cart()
+{
+    $cart = session()->get('cart', []);
+    return view('client.cart.index', compact('cart'));
+}
+
+//update cart
+public function updateCart(Request $request, $id)
+{
+    $request->validate([
+        'quantity' => 'required|integer|min:1',
+    ]);
+
+    $cart = session()->get('cart', []);
+
+    if (!isset($cart[$id])) {
+        return back()->with('error', 'Sản phẩm không tồn tại trong giỏ');
+    }
+
+    $cart[$id]['quantity'] = (int) $request->quantity;
+
+    // 👇 GHI ĐÈ SESSION
+    session()->put('cart', $cart);
+
+    return back()->with('success', 'Cập nhật giỏ hàng thành công');
+}
+
+public function removeFromCart($id)
+{
+    $cart = session()->get('cart', []);
+
+    if (isset($cart[$id])) {
+        unset($cart[$id]);
+        session()->put('cart', $cart);
+    }
+
+    return back();
+}
+
+
 }

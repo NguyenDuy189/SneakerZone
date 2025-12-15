@@ -44,7 +44,7 @@
                 
                 {{-- ẢNH SẢN PHẨM --}}
                 <div class="position-relative overflow-hidden" style="padding-top: 100%; background: #f8f9fa;">
-                    <a href="{{ route('client.products.show', $product->slug) }}">
+                    <a href="{{ route('client.products.show', ['slug' => $product->slug]) }}">
                         {{-- 
                            Sửa lỗi ảnh:
                            1. Dùng $product->thumbnail (khớp với Seeder)
@@ -62,7 +62,7 @@
                 <div class="card-body">
                     {{-- Tên sản phẩm --}}
                     <h5 class="card-title" style="font-size: 16px;">
-                        <a href="{{ route('client.products.show', $product->slug) }}" class="text-dark text-decoration-none fw-bold">
+                        <a href="{{ route('client.products.show', ['slug' => $product->slug]) }}" class="text-dark text-decoration-none fw-bold">
                             {{ $product->name }}
                         </a>
                     </h5>
@@ -74,7 +74,14 @@
                     </p>
                     
                     {{-- Nút mua --}}
-                    <a href="#" class="btn btn-dark btn-sm w-100">Thêm vào giỏ</a>
+                    <form action="{{ route('cart.add', $product->id) }}" method="POST" style="margin-top:10px;">
+    @csrf
+    <button type="submit" style="padding:10px 15px;background:red;color:#fff;border:none;">
+        TEST ADD CART
+    </button>
+</form>
+
+
                 </div>
             </div>
         </div>
