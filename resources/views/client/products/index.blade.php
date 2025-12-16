@@ -1,157 +1,105 @@
 @extends('client.layouts.app')
 
-@section('title', __('messages.shop') . ' - SneakerZone Premium')
+@section('title', 'Cửa hàng - Tất cả sản phẩm')
 
 @section('content')
 
-{{-- HEADER SHOP --}}
-<div class="bg-light py-5 mb-5">
-    <div class="container text-center">
-        <h1 class="display-4 fw-black text-uppercase tracking-widest animate__animated animate__fadeInUp">
-            {{ __('messages.shop') }}
-        </h1>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb justify-content-center text-uppercase fs-7 ls-1">
-                <li class="breadcrumb-item"><a href="{{ route('home') }}" class="text-muted text-decoration-none">{{ __('messages.home') }}</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ __('messages.shop') }}</li>
-            </ol>
-        </nav>
-    </div>
-</div>
+{{-- X-DATA để quản lý Filter Mobile --}}
+<div x-data="{ mobileFilterOpen: false }" class="bg-white min-h-screen">
 
-<div class="container pb-5">
-    <div class="row">
-        
-        {{-- SIDEBAR FILTER (Sticky) --}}
-        <div class="col-lg-3 mb-5">
-            <div class="sticky-top" style="top: 100px; z-index: 900;">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold text-uppercase mb-0">{{ __('messages.filter') }}</h5>
-                    <a href="{{ route('client.products.index') }}" class="text-muted fs-7 text-decoration-none hover-underline">Reset</a>
-                </div>
-
-                <form action="{{ route('client.products.index') }}" method="GET" id="filterForm">
-                    {{-- Giữ lại từ khóa tìm kiếm nếu có --}}
-                    @if(request('keyword'))
-                        <input type="hidden" name="keyword" value="{{ request('keyword') }}">
-                    @endif
-
-                    {{-- 1. DANH MỤC --}}
-                    <div class="mb-4 border-bottom pb-4">
-                        <h6 class="fw-bold text-uppercase fs-7 text-muted mb-3">{{ __('messages.category') }}</h6>
-                        <ul class="list-unstyled">
-                            @foreach($categories as $cat)
-                            <li class="mb-2">
-                                <label class="custom-checkbox d-flex align-items-center cursor-pointer">
-                                    <input type="radio" name="category" value="{{ $cat->slug }}" 
-                                           class="form-check-input me-2 bg-dark border-dark" 
-                                           onchange="this.form.submit()"
-                                           {{ request('category') == $cat->slug ? 'checked' : '' }}>
-                                    <span class="{{ request('category') == $cat->slug ? 'fw-bold text-dark' : 'text-secondary' }} transition-all">
-                                        {{ $cat->name }}
-                                    </span>
-                                </label>
-                            </li>
-                            @endforeach
-                        </ul>
-                    </div>
-
-                    {{-- 2. KHOẢNG GIÁ --}}
-                    <div class="mb-4 border-bottom pb-4">
-                        <h6 class="fw-bold text-uppercase fs-7 text-muted mb-3">{{ __('messages.price') }}</h6>
-                        <div class="d-flex gap-2 align-items-center">
-                            <input type="number" name="min_price" class="form-control form-control-sm rounded-0 border-secondary" 
-                                   placeholder="Min" value="{{ request('min_price') }}">
-                            <span>-</span>
-                            <input type="number" name="max_price" class="form-control form-control-sm rounded-0 border-secondary" 
-                                   placeholder="Max" value="{{ request('max_price') }}">
-                        </div>
-                        <button type="submit" class="btn btn-dark btn-sm w-100 mt-3 rounded-0 text-uppercase fw-bold">
-                            Áp dụng
-                        </button>
-                    </div>
-                </form>
-            </div>
+    {{-- 1. PAGE HEADER --}}
+    <div class="bg-slate-50 border-b border-slate-100 py-10 md:py-16">
+        <div class="container mx-auto px-4 text-center">
+            <h1 class="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tight mb-4">
+                Kho Giày <span class="text-indigo-600">Chính Hãng</span>
+            </h1>
+            <p class="text-slate-500 max-w-2xl mx-auto text-sm md:text-base">
+                Khám phá bộ sưu tập đa dạng từ các thương hiệu hàng đầu thế giới.
+            </p>
         </div>
+    </div>
 
-        {{-- PRODUCT GRID --}}
-        <div class="col-lg-9">
-            
-            {{-- TOOLBAR --}}
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <span class="text-muted fs-7">Hiển thị {{ $products->firstItem() }}-{{ $products->lastItem() }} của {{ $products->total() }} kết quả</span>
-                
-                <div class="dropdown">
-                    <button class="btn btn-outline-dark btn-sm dropdown-toggle rounded-0 px-3 text-uppercase" type="button" data-bs-toggle="dropdown">
-                        {{ __('messages.sort') }}: 
-                        @switch(request('sort'))
-                            @case('price_asc') Giá tăng dần @break
-                            @case('price_desc') Giá giảm dần @break
-                            @case('name_asc') Tên A-Z @break
-                            @default Mới nhất
-                        @endswitch
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end rounded-0 shadow-sm border-0">
-                        <li><a class="dropdown-item fs-7" href="{{ request()->fullUrlWithQuery(['sort' => 'latest']) }}">Mới nhất</a></li>
-                        <li><a class="dropdown-item fs-7" href="{{ request()->fullUrlWithQuery(['sort' => 'price_asc']) }}">Giá tăng dần</a></li>
-                        <li><a class="dropdown-item fs-7" href="{{ request()->fullUrlWithQuery(['sort' => 'price_desc']) }}">Giá giảm dần</a></li>
-                    </ul>
-                </div>
-            </div>
+    <div class="container mx-auto px-4 py-10">
+        <div class="flex flex-col lg:flex-row gap-8 xl:gap-12">
 
-            {{-- LISTING --}}
-            @if($products->count() > 0)
-                <div class="row g-4">
-                    @foreach($products as $product)
-                        <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-duration="800">
-                            {{-- Sử dụng lại Component Card cao cấp đã viết trước đó --}}
-                            <div class="product-card-premium h-100 group">
-                                <div class="img-wrapper mb-3 position-relative bg-light rounded-3 overflow-hidden" style="padding-top: 100%;">
-                                    <a href="{{ route('client.products.show', $product->slug) }}">
-                                        <img src="{{ $product->image ? asset('storage/'.$product->image) : asset('img/no-image.png') }}" 
-                                             class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain p-4 transition-transform duration-500 hover-scale" 
-                                             alt="{{ $product->name }}">
-                                    </a>
-                                    {{-- Quick Add Btn --}}
-                                    <button class="btn btn-dark btn-icon position-absolute bottom-0 end-0 m-3 rounded-circle shadow-lg d-flex align-items-center justify-content-center opacity-0 group-hover-visible" 
-                                            style="width: 40px; height: 40px; transition: all 0.3s;">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                                <div class="product-info">
-                                    <div class="text-muted fs-8 text-uppercase mb-1">{{ $product->category->name ?? 'Sneaker' }}</div>
-                                    <h6 class="fw-bold mb-1"><a href="{{ route('client.products.show', $product->slug) }}" class="text-dark text-decoration-none">{{ $product->name }}</a></h6>
-                                    <div class="fw-bold text-accent">
-                                        {{ number_format($product->price_min, 0, ',', '.') }}₫
-                                    </div>
-                                </div>
+            {{-- 2. SIDEBAR FILTER (Desktop) --}}
+            <aside class="hidden lg:block w-1/4 xl:w-1/5 flex-shrink-0">
+                <div class="sticky top-24 pr-4 space-y-8">
+                    <form action="{{ route('client.products.index') }}" method="GET" id="filterForm">
+                        
+                        {{-- Tìm kiếm --}}
+                        <div class="mb-8">
+                            <h3 class="font-bold text-slate-900 mb-4 uppercase text-xs tracking-wider">Tìm kiếm</h3>
+                            <div class="relative">
+                                <input type="text" name="keyword" value="{{ request('keyword') }}" placeholder="Tên sp..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400"></i>
                             </div>
                         </div>
-                    @endforeach
+
+                        {{-- Danh mục --}}
+                        <div class="mb-8 border-b border-slate-100 pb-8">
+                            <h3 class="font-bold text-slate-900 uppercase text-xs tracking-wider mb-4">Danh mục</h3>
+                            <div class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="radio" name="category" value="" class="peer accent-indigo-600" {{ !request('category') ? 'checked' : '' }} onchange="this.form.submit()">
+                                    <span class="text-sm text-slate-600 group-hover:text-indigo-600">Tất cả</span>
+                                </label>
+                                @foreach($categories as $cat)
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <input type="radio" name="category" value="{{ $cat->slug }}" class="peer accent-indigo-600" {{ request('category') == $cat->slug ? 'checked' : '' }} onchange="this.form.submit()">
+                                        <div class="flex-1 flex justify-between items-center">
+                                            <span class="text-sm text-slate-600 group-hover:text-indigo-600">{{ $cat->name }}</span>
+                                            <span class="text-[10px] bg-slate-100 text-slate-500 py-0.5 px-2 rounded-full">{{ $cat->products_count }}</span>
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-indigo-600 transition-all shadow-md active:scale-95">Áp dụng</button>
+                    </form>
+                </div>
+            </aside>
+
+            {{-- 3. MAIN CONTENT --}}
+            <main class="flex-1">
+                {{-- Toolbar --}}
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+                    <p class="text-sm text-slate-500 hidden md:block">Tìm thấy <span class="font-bold text-slate-900">{{ $products->total() }}</span> sản phẩm</p>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <span class="text-sm text-slate-500">Sắp xếp:</span>
+                        <select onchange="location.href = this.value" class="bg-white border border-slate-200 pl-3 pr-8 py-2 rounded-lg text-sm font-bold text-slate-700 focus:outline-none cursor-pointer">
+                            <option value="{{ request()->fullUrlWithQuery(['sort' => 'newest']) }}" {{ request('sort') == 'newest' ? 'selected' : '' }}>Mới nhất</option>
+                            <option value="{{ request()->fullUrlWithQuery(['sort' => 'price_asc']) }}" {{ request('sort') == 'price_asc' ? 'selected' : '' }}>Giá tăng dần</option>
+                            <option value="{{ request()->fullUrlWithQuery(['sort' => 'price_desc']) }}" {{ request('sort') == 'price_desc' ? 'selected' : '' }}>Giá giảm dần</option>
+                        </select>
+                    </div>
                 </div>
 
-                {{-- PAGINATION --}}
-                <div class="mt-5 d-flex justify-content-center">
-                    {{ $products->links('pagination::bootstrap-5') }}
-                </div>
-            @else
-                <div class="text-center py-5">
-                    <img src="https://cdn-icons-png.flaticon.com/512/4076/4076432.png" width="80" class="mb-3 opacity-50">
-                    <h5 class="text-muted">Không tìm thấy sản phẩm nào.</h5>
-                    <a href="{{ route('client.products.index') }}" class="btn btn-dark rounded-pill mt-3 px-4">Xóa bộ lọc</a>
-                </div>
-            @endif
+                {{-- PRODUCT GRID --}}
+                @if($products->count() > 0)
+                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10">
+                        @foreach($products as $key => $product)  {{-- Đặt tên biến key --}}
+                            @include('client.products._product_item', [
+                                'product' => $product, 
+                                'index' => $key  {{-- Truyền index vào đây --}}
+                            ])
+                        @endforeach
+                    </div>
+
+                    {{-- Pagination --}}
+                    <div class="mt-12">
+                        {{ $products->onEachSide(1)->links('pagination::tailwind') }}
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-3xl">
+                        <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-4"></i>
+                        <h3 class="text-xl font-bold text-slate-800">Không tìm thấy sản phẩm</h3>
+                        <a href="{{ route('client.products.index') }}" class="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg">Xóa bộ lọc</a>
+                    </div>
+                @endif
+            </main>
         </div>
     </div>
 </div>
-
-<style>
-    /* CSS Riêng cho trang Shop */
-    .hover-scale:hover { transform: scale(1.08); }
-    .group:hover .group-hover-visible { opacity: 1; transform: translateY(0); }
-    .group-hover-visible { transform: translateY(10px); }
-    .form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
-    .pagination .page-link { color: var(--primary); border: none; font-weight: 600; }
-    .pagination .active .page-link { background-color: var(--primary); color: #fff; border-radius: 50%; }
-</style>
 @endsection

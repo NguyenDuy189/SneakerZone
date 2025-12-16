@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes; // Sử dụng xóa mềm
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
@@ -12,57 +12,90 @@ class Product extends Model
 
     protected $table = 'products';
 
+    // Đã chuẩn hóa tên cột theo View/Controller mới nhất
     protected $fillable = [
-        'name', 'slug', 'sku_code', 
-        'description', 'short_description', 
-        'brand_id', 'thumbnail', 'gallery', 
-        'price_min', 'status', 'is_featured'
+        'name', 
+        'slug', 
+        'sku_code', 
+        'description', 
+        'short_description', 
+        'brand_id', 
+        'category_id', // Quan trọng: Khóa ngoại danh mục
+        'image',       // Quan trọng: Ảnh đại diện chính (View đang gọi là image)
+        'price_min', 
+        'stock_quantity',
+        'status',      // 'published' hoặc 'draft'
+        'is_featured', // boolean
+        'views'        // Đếm lượt xem
     ];
 
-    // Tự động chuyển JSON trong DB thành Mảng PHP và ngược lại
     protected $casts = [
-        'gallery' => 'array',
         'is_featured' => 'boolean',
-        'price_min' => 'decimal:2',
+        'price_min'   => 'decimal:0', // Giá tiền không cần số lẻ thập phân
+        'status'      => 'string',
     ];
 
-    // --- QUAN HỆ ---
+    // =========================================================================
+    // RELATIONS (CÁC MỐI QUAN HỆ)
+    // =========================================================================
 
-    // 1. Thuộc về 1 Thương hiệu
+    /**
+     * 1. Thương hiệu (BelongsTo)
+     * $product->brand->name
+     */
     public function brand()
     {
         return $this->belongsTo(Brand::class);
     }
 
-    // 2. Thuộc nhiều Danh mục (Bảng trung gian product_categories)
-    public function categories()
+    /**
+     * 2. Danh mục (BelongsTo)
+     * $product->category->name
+     * Lưu ý: Hệ thống đang dùng quan hệ 1-N (1 sản phẩm thuộc 1 danh mục chính)
+     */
+    public function category()
     {
-        return $this->belongsToMany(Category::class, 'product_categories');
+        return $this->belongsTo(Category::class, 'category_id');
     }
 
-    // 3. Có nhiều biến thể (Sẽ làm ở bước sau)
+    /**
+     * 3. Biến thể (HasMany)
+     * Size, Màu sắc, Tồn kho từng loại
+     */
     public function variants()
     {
         return $this->hasMany(ProductVariant::class);
     }
 
-    // Quan hệ: 1 Sản phẩm thuộc 1 Danh mục
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
-    }
-
-    // Quan hệ: 1 Sản phẩm có nhiều Ảnh Gallery (Bảng product_images)
+    /**
+     * 4. Ảnh chi tiết / Gallery (HasMany)
+     * Dùng bảng riêng `product_images` thay vì JSON để dễ quản lý
+     */
     public function gallery_images()
     {
-        return $this->hasMany(ProductImage::class);
+        // Model tên là ProductImage, khóa ngoại product_id
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order', 'asc');
     }
 
-    // Quan hệ: 1 Sản phẩm có nhiều Biến thể (Size/Color)
-
-    // Quan hệ: 1 Sản phẩm có nhiều Đánh giá
+    /**
+     * 5. Đánh giá (HasMany)
+     */
     public function reviews()
     {
         return $this->hasMany(Review::class);
     }
+
+    // Sửa trong Product.php
+    public function categories() // Đổi tên thành số nhiều
+    {
+        // Và phải dùng belongsToMany nếu 1 sp thuộc nhiều danh mục
+        return $this->belongsToMany(Category::class, 'product_categories'); 
+    }
+    
+    // =========================================================================
+    // ACCESSORS (Hàm phụ trợ)
+    // =========================================================================
+    
+    // Đếm số lượng biến thể (Để hiển thị "Available in 5 sizes" ngoài view)
+    // Hoặc có thể dùng withCount('variants') trong controller
 }
