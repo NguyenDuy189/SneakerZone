@@ -16,24 +16,29 @@ class Category extends Model
         'slug',
         'parent_id',
         'level',
-        'image_url',
+        'image_url', // Ảnh đại diện danh mục (hiển thị ở trang chủ Bento Grid)
         'is_visible'
     ];
 
     /**
-     * Quan hệ: Lấy danh mục cha
+     * Quan hệ: Danh mục cha
      */
     public function parent()
     {
         return $this->belongsTo(Category::class, 'parent_id');
     }
 
+    /**
+     * Quan hệ: Danh mục con
+     */
     public function children()
     {
         return $this->hasMany(Category::class, 'parent_id');
     }
 
-    // Bổ sung — Quan hệ đến bảng Products
+    /**
+     * Quan hệ: Sản phẩm thuộc danh mục này
+     */
     public function products()
     {
         return $this->hasMany(Product::class, 'category_id');

@@ -1,152 +1,124 @@
-{{-- CSS CHO PRODUCT CARD --}}
-<style>
-    .product-card {
-        transition: all 0.3s ease;
-        border: 1px solid transparent;
-        background: #fff;
-    }
-    .product-card:hover {
-        border-color: #eee;
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-    }
+{{-- 
+    COMPONENT: PRODUCT ROW (GRID)
+    Nhận vào biến $items (Collection sản phẩm)
+--}}
+
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10">
     
-    .product-img-wrap {
-        position: relative;
-        padding-top: 100%; /* Square aspect ratio */
-        background-color: #f6f6f6;
-        overflow: hidden;
-    }
-    
-    .product-img {
-        position: absolute;
-        top: 0; 
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: contain; /* Ensures whole shoe is visible */
-        padding: 10px; /* Padding inside the image area */
-        transition: transform 0.5s ease;
-    }
-    
-    .product-card:hover .product-img {
-        transform: scale(1.05);
-    }
-
-    .card-body {
-        padding: 15px;
-        text-align: left;
-    }
-
-    .product-category {
-        font-size: 11px;
-        color: #999;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-        display: block;
-    }
-
-    .product-title {
-        font-size: 15px;
-        font-weight: 600;
-        color: #111;
-        margin-bottom: 6px;
-        line-height: 1.4;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        height: 42px; /* Fixed height for title alignment */
-    }
-    
-    .product-title a:hover { color: #555; }
-
-    .product-price {
-        font-size: 15px;
-        font-weight: 700;
-        color: #111;
-    }
-
-    .btn-add-cart {
-        width: 100%;
-        background-color: #111;
-        color: #fff;
-        font-size: 13px;
-        font-weight: 600;
-        padding: 10px 0;
-        border-radius: 4px;
-        margin-top: 10px;
-        opacity: 0;
-        transform: translateY(10px);
-        transition: all 0.3s ease;
-    }
-
-    /* Show button on hover on desktop */
-    .product-card:hover .btn-add-cart {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    /* Always show button on mobile */
-    @media (max-width: 768px) {
-        .btn-add-cart { opacity: 1; transform: translateY(0); }
-    }
-</style>
-
-<div class="row g-4">
-    @foreach($items as $item)
-    <div class="col-lg-3 col-md-4 col-sm-6 col-6">
-        <div class="card product-card h-100">
+    @foreach ($items as $index => $product)
+        {{-- PRODUCT CARD --}}
+        <div class="group relative flex flex-col overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500" 
+             data-aos="fade-up" 
+             data-aos-delay="{{ $index * 50 }}">
             
-            {{-- IMAGE --}}
-            <div class="product-img-wrap">
-                <a href="{{ route('client.products.show', $item->slug) }}">
-                    @php
-                        $currentImage = $item->thumbnail ?? $item->image;
-                        if (empty($currentImage)) {
-                            $imgUrl = asset('img/no-image.png');
-                        } elseif (Str::startsWith($currentImage, 'http')) {
-                            $imgUrl = $currentImage;
-                        } else {
-                            // Ensure path logic matches your storage setup
-                            $imgUrl = asset('img/products/' . $currentImage);
-                        }
-                    @endphp
-                    <img 
-                        src="{{ $imgUrl }}"
-                        class="product-img"
-                        alt="{{ $item->name }}"
-                        onerror="this.onerror=null; this.src='{{ asset('img/no-image.png') }}';"
-                    >
-                </a>
+            {{-- 1. IMAGE AREA --}}
+            <div class="relative aspect-[4/5] overflow-hidden bg-slate-50">
                 
-                {{-- Badges (Optional) --}}
-                @if($item->is_featured)
-                    <span class="badge bg-dark position-absolute top-0 start-0 m-2 rounded-0 text-uppercase" style="font-size: 10px; letter-spacing: 1px;">Hot</span>
-                @endif
-            </div>
-            
-            {{-- INFO --}}
-            <div class="card-body">
-                {{-- Category Placeholder (Ideally fetch from relation) --}}
-                <span class="product-category">Men's Shoes</span>
-
-                <h5 class="product-title">
-                    <a href="{{ route('client.products.show', $item->slug) }}">
-                        {{ $item->name }}
-                    </a>
-                </h5>
-                
-                <div class="d-flex justify-content-between align-items-center">
-                    <p class="product-price mb-0">
-                        {{ $item->price_min ? number_format($item->price_min, 0, ',', '.') . '₫' : 'Liên hệ' }}
-                    </p>
+                {{-- Badges --}}
+                <div class="absolute top-3 left-3 z-20 flex flex-col gap-2">
+                    @if($product->is_featured)
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-indigo-600/90 text-white backdrop-blur-sm uppercase tracking-wider shadow-sm">
+                            Hot
+                        </span>
+                    @endif
+                    
+                    {{-- Logic Sale giả lập (Hoặc dùng logic thật nếu có field sale_price) --}}
+                    @if($product->price_min < 1000000) 
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-rose-500/90 text-white backdrop-blur-sm uppercase tracking-wider shadow-sm">
+                            Sale
+                        </span>
+                    @endif
                 </div>
 
-                <a href="#" class="btn btn-add-cart">Thêm vào giỏ</a>
+                {{-- Wishlist Button --}}
+                <button class="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white transition-all shadow-sm scale-0 group-hover:scale-100 duration-300">
+                    <i class="fa-regular fa-heart"></i>
+                </button>
+
+                {{-- Link & Images --}}
+                <a href="{{ route('client.products.show', $product->slug) }}" class="block w-full h-full">
+                    {{-- Xử lý ảnh: Ưu tiên ảnh thật, nếu không có dùng ảnh placeholder --}}
+                    @php
+                        $mainImg = $product->image && \Illuminate\Support\Facades\Storage::disk('public')->exists($product->image) 
+                            ? asset('storage/'.$product->image) 
+                            : asset('img/no-image.png');
+                        
+                        // Lấy ảnh gallery đầu tiên làm ảnh hover (nếu có)
+                        $hoverImg = null;
+                        if($product->gallery_images && $product->gallery_images->isNotEmpty()) {
+                            $firstGallery = $product->gallery_images->first();
+                            if(\Illuminate\Support\Facades\Storage::disk('public')->exists($firstGallery->image_path)){
+                                $hoverImg = asset('storage/' . $firstGallery->image_path);
+                            }
+                        }
+                    @endphp
+
+                    {{-- Ảnh chính --}}
+                    <img src="{{ $mainImg }}" 
+                         alt="{{ $product->name }}"
+                         class="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-110 {{ $hoverImg ? 'group-hover:opacity-0' : '' }}"
+                         loading="lazy"
+                         onerror="this.src='https://placehold.co/400x500?text=No+Image'">
+                    
+                    {{-- Ảnh Hover (Nếu có) --}}
+                    @if($hoverImg)
+                        <img src="{{ $hoverImg }}" 
+                             alt="{{ $product->name }}"
+                             class="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-100">
+                    @endif
+                    
+                    {{-- Dark Overlay khi hover (để chữ nổi hơn) --}}
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300"></div>
+                </a>
+
+                {{-- Quick Add Button (Slide Up) --}}
+                <div class="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-20">
+                    <a href="{{ route('client.products.show', $product->slug) }}" 
+                       class="flex w-full items-center justify-center gap-2 rounded-xl bg-white/95 backdrop-blur py-3 text-sm font-bold text-slate-900 shadow-lg hover:bg-slate-900 hover:text-white transition-colors">
+                        <i class="fa-solid fa-cart-plus"></i> Tùy chọn
+                    </a>
+                </div>
+            </div>
+
+            {{-- 2. INFO AREA --}}
+            <div class="flex flex-1 flex-col p-4">
+                {{-- Category & Size Preview --}}
+                <div class="mb-1 flex items-center justify-between">
+                    <a href="{{ route('client.products.index', ['category' => $product->category->slug ?? '']) }}" class="text-[10px] font-bold uppercase tracking-wide text-slate-400 hover:text-indigo-600 transition-colors">
+                        {{ $product->category->name ?? 'Sneaker' }}
+                    </a>
+                    
+                    {{-- Đếm số lượng biến thể (size) --}}
+                    @if($product->variants_count > 0 || ($product->variants && $product->variants->count() > 0))
+                        <span class="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                            {{ $product->variants_count ?? $product->variants->count() }} sizes
+                        </span>
+                    @endif
+                </div>
+
+                {{-- Product Name --}}
+                <h3 class="mb-2 text-base font-bold text-slate-900 leading-snug line-clamp-2 min-h-[2.5rem]">
+                    <a href="{{ route('client.products.show', $product->slug) }}" class="hover:text-indigo-600 transition-colors">
+                        {{ $product->name }}
+                    </a>
+                </h3>
+
+                {{-- Price & Rating --}}
+                <div class="mt-auto flex items-end justify-between">
+                    <div class="flex flex-col">
+                        <span class="text-lg font-extrabold text-slate-900">
+                            {{ number_format($product->price_min, 0, ',', '.') }}<span class="text-xs align-top">₫</span>
+                        </span>
+                    </div>
+                    
+                    {{-- Fake Rating (Hoặc dùng real rating nếu có relation reviews) --}}
+                    <div class="flex items-center gap-1 text-amber-400 text-xs">
+                        <i class="fa-solid fa-star"></i>
+                        <span class="text-slate-400 font-medium ml-0.5">4.8</span>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
     @endforeach
+
 </div>

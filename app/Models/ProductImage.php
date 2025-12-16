@@ -9,15 +9,14 @@ class ProductImage extends Model
 {
     use HasFactory;
 
+    protected $table = 'product_images'; // Tên bảng trong DB
+
     protected $fillable = [
         'product_id',
-        'image_path',
-        'sort_order'
+        'image_path', // Đường dẫn ảnh (storage/...)
+        'sort_order', // Thứ tự hiển thị
     ];
 
-    /**
-     * Quan hệ ngược: Ảnh này thuộc về sản phẩm nào
-     */
     public function product()
     {
         return $this->belongsTo(Product::class);

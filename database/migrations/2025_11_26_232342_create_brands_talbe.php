@@ -16,6 +16,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
+            $table->boolean('is_visible')->default(true);
             $table->string('logo_url')->nullable();
             $table->text('description')->nullable();
             $table->timestamps();

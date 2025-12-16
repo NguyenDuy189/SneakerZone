@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\FlashSaleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\DiscountController;
+use App\Http\Controllers\Client\CartController;
 use App\Http\Controllers\Client\HomeController;
 use App\Http\Controllers\Client\ProductController;
 use App\Http\Middleware\CheckRole;
@@ -34,17 +35,48 @@ use App\Http\Middleware\CheckRole;
 | 1. CLIENT ROUTES (PUBLIC)
 |--------------------------------------------------------------------------
 */
-Route::name('client.')->group(function() {
-    Route::get('/', [HomeController::class, 'index'])->name('home');
+// ... Các import giữ nguyên
+
+
+
+// Nhóm Route cho Client
+Route::name('client.')->group(function () {
     
-    // Sản phẩm
+    // 1. TRANG CHỦ
+    // Tên route: client.home
+    Route::get('/', [HomeController::class, 'index'])->name('home');
+
+    // 2. NHÓM SẢN PHẨM (Cửa hàng)
+    // Prefix URL: /shop
+    // Prefix Name: client.products.
     Route::prefix('shop')->name('products.')->group(function() {
+        
+        // Danh sách sản phẩm
+        // Tên đầy đủ: client.products.index
         Route::get('/', [ProductController::class, 'index'])->name('index');
+        
+        // Chi tiết sản phẩm
+        // Tên đầy đủ: client.products.show
         Route::get('/{slug}', [ProductController::class, 'show'])->name('show');
     });
+    
+    Route::controller(CartController::class)
+    ->prefix('cart')
+    ->name('cart.') // Tên route sẽ là: client.cart.index, client.cart.add...
+    ->group(function () {
+        Route::get('/', 'index')->name('index');           // Xem giỏ hàng
+        Route::post('add', 'add')->name('add');             // Thêm vào giỏ
+        Route::post('update', 'update')->name('update');    // Cập nhật số lượng
+        Route::get('remove/{id}', 'remove')->name('remove');// Xóa sản phẩm
+    });
 
-    // Client Auth (Placeholder - nếu sau này phát triển)
-    // Route::get('login', [ClientAuthController::class, 'showLoginForm'])->name('login');
+    // ... các route khác ...
+
+    // ROUTE REVIEW (Thêm đoạn này)
+    Route::post('reviews', [ReviewController::class, 'store'])
+        ->name('reviews.store')
+        ->middleware('auth'); // Bắt buộc đăng nhập mới được review
+
 });
 
 /*
