@@ -58,6 +58,7 @@ Route::name('client.')->group(function () {
         // Chi tiết sản phẩm
         // Tên đầy đủ: client.products.show
         Route::get('/{slug}', [ProductController::class, 'show'])->name('show');
+
     });
     
     Route::controller(CartController::class)
