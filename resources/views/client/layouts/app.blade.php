@@ -147,11 +147,19 @@
                     </div>
 
                     {{-- Cart Icon --}}
-                    <button class="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all">
-                        <i class="fa-solid fa-bag-shopping text-xl"></i>
-                        {{-- Badge số lượng --}}
-                        <span class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white">0</span>
-                    </button>
+                    <a href="{{ route('client.carts.index') }}" 
+                    class="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all group">
+                        
+                        {{-- Icon --}}
+                        <i class="fa-solid fa-bag-shopping text-xl transition-transform group-hover:-translate-y-0.5"></i>
+                        
+                        {{-- Badge số lượng (Chỉ hiện khi > 0) --}}
+                        @if(isset($cartCount) && $cartCount > 0)
+                            <span class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white shadow-sm">
+                                {{ $cartCount > 99 ? '99+' : $cartCount }}
+                            </span>
+                        @endif
+                    </a>
 
                     {{-- Mobile Menu Button --}}
                     <button @click="mobileMenuOpen = true" class="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-slate-900 hover:bg-slate-100">

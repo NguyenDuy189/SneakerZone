@@ -83,7 +83,7 @@
                     </div>
 
                     {{-- Form --}}
-                    <form action="{{ route('client.cart.add') }}" method="POST" id="addToCartForm" class="space-y-6">
+                    <form action="{{ route('client.carts.add') }}" method="POST" id="addToCartForm" class="space-y-6">
                         @csrf
                         <input type="hidden" name="variant_id" x-model="selectedVariantId">
                         <input type="hidden" name="product_id" value="{{ $product->id }}">
@@ -462,6 +462,7 @@
             },
 
             submitCart() {
+                // 1. Validate Variant
                 @if($groupedAttributes->count() > 0)
                     if (!this.selectedVariantId) {
                         this.errorMsg = 'Vui lòng chọn Phân loại!';
@@ -469,25 +470,38 @@
                     }
                 @endif
                 
+                // 2. Validate Stock
                 if (this.currentStock <= 0) {
-                     this.errorMsg = 'Sản phẩm đã hết hàng.';
-                     return;
+                        this.errorMsg = 'Sản phẩm đã hết hàng.';
+                        return;
                 }
+
+                // --- THÊM ĐOẠN NÀY ---
+                // Gán cứng giá trị vào input trước khi submit để đảm bảo backend nhận được
+                const variantInput = document.querySelector('input[name="variant_id"]');
+                if(variantInput) {
+                    variantInput.value = this.selectedVariantId; 
+                }
+                // ---------------------
+
+                // 3. Submit Form
                 document.getElementById('addToCartForm').submit();
             }
         }
     }
 </script>
 
+{{-- ... (Phần trên giữ nguyên) --}}
+</script>
+
 <style>
     [x-cloak] { display: none !important; }
-    /* Tùy chỉnh thanh cuộn cho box review */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 </style>
 
-{{-- TOAST NOTIFICATION (ALPINEJS) --}}
+{{-- === PROFESSIONAL TOAST NOTIFICATION === --}}
 <div x-data="{ 
         show: false, 
         message: '', 
@@ -495,39 +509,65 @@
      }" 
      x-init="
         @if(session('success')) 
-            message = '{{ session('success') }}'; type = 'success'; show = true; setTimeout(() => show = false, 3000);
+            message = '{{ session('success') }}'; type = 'success'; show = true; 
+            setTimeout(() => show = false, 4000); // Ẩn sau 4s
         @endif
         @if(session('error')) 
-            message = '{{ session('error') }}'; type = 'error'; show = true; setTimeout(() => show = false, 4000);
+            message = '{{ session('error') }}'; type = 'error'; show = true; 
+            setTimeout(() => show = false, 5000);
         @endif
      "
      x-show="show" 
+     x-cloak
      x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0 translate-y-2"
-     x-transition:enter-end="opacity-100 translate-y-0"
+     x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
      x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100 translate-y-0"
-     x-transition:leave-end="opacity-0 translate-y-2"
-     class="fixed bottom-5 right-5 z-[200] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border"
-     :class="type === 'success' ? 'bg-white border-emerald-100 text-emerald-600' : 'bg-white border-rose-100 text-rose-600'"
-     style="display: none;">
+     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+     x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+     class="fixed top-24 right-5 z-[200] max-w-sm w-full bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start gap-4"
+     :class="type === 'success' ? 'border-emerald-500 shadow-emerald-500/10' : 'border-rose-500 shadow-rose-500/10'">
     
-    {{-- Icon --}}
-    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-         :class="type === 'success' ? 'bg-emerald-100' : 'bg-rose-100'">
-        <i class="fa-solid" :class="type === 'success' ? 'fa-check' : 'fa-xmark'"></i>
+    {{-- 1. Icon --}}
+    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+         :class="type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'">
+        <i class="fa-solid" :class="type === 'success' ? 'fa-check' : 'fa-circle-exclamation'"></i>
     </div>
 
-    {{-- Nội dung --}}
-    <div>
-        <h4 class="font-bold text-sm" x-text="type === 'success' ? 'Thành công!' : 'Thất bại!'"></h4>
-        <p class="text-xs text-slate-500" x-text="message"></p>
+    {{-- 2. Content --}}
+    <div class="flex-1">
+        <h4 class="font-black text-sm uppercase tracking-wide mb-1" 
+            :class="type === 'success' ? 'text-emerald-700' : 'text-rose-700'"
+            x-text="type === 'success' ? 'Thành công' : 'Có lỗi xảy ra'">
+        </h4>
+        <p class="text-xs text-slate-600 font-medium leading-relaxed" x-text="message"></p>
+
+        {{-- Nút Xem giỏ hàng (Chỉ hiện khi thành công) --}}
+        <template x-if="type === 'success'">
+            <div class="mt-3">
+                <a href="{{ route('client.carts.index') }}" class="text-[10px] font-bold uppercase tracking-widest text-white bg-slate-900 px-3 py-1.5 rounded hover:bg-emerald-600 transition-colors inline-flex items-center gap-1">
+                    Xem giỏ hàng <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </template>
     </div>
 
-    {{-- Nút tắt --}}
-    <button @click="show = false" class="text-slate-400 hover:text-slate-600 ml-2">
+    {{-- 3. Close Button --}}
+    <button @click="show = false" class="text-slate-300 hover:text-slate-500 transition-colors">
         <i class="fa-solid fa-xmark"></i>
     </button>
+
+    {{-- Progress Bar (Tự chạy) --}}
+    <div class="absolute bottom-0 left-0 h-0.5 bg-current opacity-20 w-full animate-[shrink_4s_linear_forwards]"
+         :class="type === 'success' ? 'text-emerald-500' : 'text-rose-500'"></div>
 </div>
+
+<style>
+    @keyframes shrink {
+        from { width: 100%; }
+        to { width: 0%; }
+    }
+</style>
+
 @endsection
 
