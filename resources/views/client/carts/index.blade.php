@@ -198,10 +198,52 @@
                         </div>
 
                         {{-- Nút Thanh toán --}}
-                        <a href="{{ route('client.checkouts.index') }}" 
-                           class="block w-full py-4 mt-6 bg-slate-900 text-white font-bold text-center rounded-xl hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-200 uppercase tracking-widest text-xs">
-                            Thanh toán ngay
-                        </a>
+                        <div class="space-y-3">
+                            {{-- 1. COD --}}
+                            <label class="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors">
+                                <input type="radio" name="payment_method" value="cod" checked class="w-5 h-5 text-indigo-600 focus:ring-indigo-500">
+                                <div class="flex-1">
+                                    <span class="block font-bold text-slate-900 text-sm">Thanh toán khi nhận hàng (COD)</span>
+                                </div>
+                                <i class="fa-solid fa-money-bill-wave text-slate-400 text-xl"></i>
+                            </label>
+
+                            {{-- 2. VNPAY --}}
+                            <label class="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
+                                <input type="radio" name="payment_method" value="vnpay" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
+                                <div class="flex-1">
+                                    <span class="block font-bold text-slate-900 text-sm">VNPAY (ATM/QR/Visa)</span>
+                                </div>
+                                <img src="https://vnpay.vn/assets/images/logo-icon/logo-primary.svg" class="h-6 object-contain">
+                            </label>
+
+                            {{-- 3. MOMO --}}
+                            <label class="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:border-pink-500 transition-colors">
+                                <input type="radio" name="payment_method" value="momo" class="w-5 h-5 text-pink-500 focus:ring-pink-500">
+                                <div class="flex-1">
+                                    <span class="block font-bold text-slate-900 text-sm">Ví MoMo</span>
+                                </div>
+                                <img src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png" class="h-8 w-8 object-contain">
+                            </label>
+
+                            {{-- 4. ZALOPAY --}}
+                            <label class="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:border-cyan-500 transition-colors">
+                                <input type="radio" name="payment_method" value="zalopay" class="w-5 h-5 text-cyan-500 focus:ring-cyan-500">
+                                <div class="flex-1">
+                                    <span class="block font-bold text-slate-900 text-sm">Ví ZaloPay</span>
+                                </div>
+                                <img src="https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png" class="h-8 w-8 object-contain">
+                            </label>
+                            
+                            {{-- 5. SHOPEEPAY --}}
+                            <label class="flex items-center gap-4 p-4 border border-slate-200 rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
+                                <input type="radio" name="payment_method" value="shopeepay" class="w-5 h-5 text-orange-500 focus:ring-orange-500">
+                                <div class="flex-1">
+                                    <span class="block font-bold text-slate-900 text-sm">Ví ShopeePay</span>
+                                </div>
+                                <img src="https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ShopeePay-V.png" class="h-8 w-8 object-contain">
+                            </label>
+                        </div>
 
                         <div class="mt-4 flex items-center justify-center gap-2 text-slate-400 text-xl opacity-70">
                             <i class="fa-brands fa-cc-visa"></i>

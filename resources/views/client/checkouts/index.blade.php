@@ -10,7 +10,7 @@
             <i class="fa-solid fa-credit-card text-indigo-600"></i> Thanh toán
         </h1>
 
-        <form action="{{ route('client.checkout.process') }}" method="POST">
+        <form action="{{ route('client.checkouts.process') }}" method="POST">
             @csrf
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 

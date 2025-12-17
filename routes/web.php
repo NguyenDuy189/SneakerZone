@@ -78,9 +78,15 @@ Route::name('client.')->group(function () {
     });
 
     // Sửa thành: Chỉ để 'checkouts.' (Nhớ có dấu chấm cuối)
-    Route::group(['prefix' => 'checkout', 'as' => 'checkouts.'], function() { 
+    Route::group(['prefix' => 'checkout', 'as' => 'checkouts.'], function() {
         Route::get('/', [CheckoutController::class, 'index'])->name('index');
         Route::post('/process', [CheckoutController::class, 'process'])->name('process');
+        Route::get('/success', [CheckoutController::class, 'success'])->name('success');
+        
+        // Callbacks
+        Route::get('/vnpay-return', [CheckoutController::class, 'vnpayReturn'])->name('vnpay_return');
+        Route::get('/momo-return', [CheckoutController::class, 'momoReturn'])->name('momo_return');
+        Route::get('/zalopay-return', [CheckoutController::class, 'zaloPayReturn'])->name('zalopay_return');
     });
 
 });
