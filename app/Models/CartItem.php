@@ -1,14 +1,21 @@
 <?php
+
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Model;
 
 class CartItem extends Model
 {
-    protected $fillable = ['cart_id', 'product_variant_id', 'quantity'];
+    protected $fillable = [
+        'cart_id',
+        'variant_id',
+        'price',
+        'quantity'
+    ];
 
     public function variant()
     {
-        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+        return $this->belongsTo(ProductVariant::class, 'variant_id');
     }
 
     public function cart()

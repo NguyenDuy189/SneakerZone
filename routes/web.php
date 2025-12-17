@@ -13,6 +13,8 @@ use App\Http\Controllers\Client\HomeController;
 use App\Http\Controllers\Client\ProductController as ClientProductController;
 use App\Http\Controllers\Client\CartController;
 use App\Http\Controllers\Client\ReviewController as ClientReviewController; // <--- Đã đặt biệt danh cho Client
+use App\Http\Controllers\Client\AuthController as ClientAuthController;
+use App\Http\Controllers\Client\ProfileController;
 
 // 2. Admin Controllers
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
@@ -81,6 +83,64 @@ Route::name('client.')->group(function () {
     Route::group(['prefix' => 'checkout', 'as' => 'checkouts.'], function() { 
         Route::get('/', [CheckoutController::class, 'index'])->name('index');
         Route::post('/process', [CheckoutController::class, 'process'])->name('process');
+    });
+    // 5.đăng kí,đăng nhập
+    Route::middleware('guest')->group(function () {
+        Route::get('login', [ClientAuthController::class, 'showLoginForm'])
+            ->name('login');
+
+        Route::post('login', [ClientAuthController::class, 'login'])
+            ->name('login.submit');
+
+        Route::get('register', [ClientAuthController::class, 'showRegisterForm'])
+            ->name('register');
+
+        Route::post('register', [ClientAuthController::class, 'register'])
+            ->name('register.submit');
+    });
+
+    Route::post('logout', [ClientAuthController::class, 'logout'])
+        ->middleware('auth')
+        ->name('logout');
+
+    // 6. Hồ sơ tài khoản
+    Route::middleware('auth')->group(function () {
+
+    Route::get('account', [ProfileController::class, 'index'])
+        ->name('account.profile');
+
+    Route::post('account', [ProfileController::class, 'update'])
+        ->name('account.profile.update');
+
+    Route::get('account/password', [ProfileController::class, 'password'])
+        ->name('account.password');
+
+    Route::post('account/password', [ProfileController::class, 'updatePassword'])
+        ->name('account.password.update');
+    });    
+
+    //7 . oder
+    Route::middleware('auth')->group(function () {
+
+    Route::get('orders', [ClientOrderController::class, 'index'])
+        ->name('orders.index');
+
+    Route::get('orders/{id}', [ClientOrderController::class, 'show'])
+        ->name('orders.show');
+    });
+
+    // 8. giỏ hàng
+    Route::middleware('auth')->group(function () {
+    Route::controller(CartController::class)
+        ->prefix('cart')
+        ->name('cart.')
+        ->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('add', 'add')->name('add');
+            Route::post('update', 'update')->name('update');
+            Route::get('remove/{id}', 'remove')->name('remove');
+            Route::post('checkout', 'checkout')->name('checkout');
+        });
     });
 
 });
