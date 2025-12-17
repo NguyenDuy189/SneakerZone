@@ -130,25 +130,52 @@
                                     <p class="text-xs text-slate-400">Xin chào,</p>
                                     <p class="text-sm font-bold text-slate-800 truncate">{{ Auth::user()->name }}</p>
                                 </div>
-                                <a href="#" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">Đơn hàng của tôi</a>
-                                <a href="#" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">Tài khoản</a>
+                                <a href="{{ route('client.orders.index') }}"
+   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+    Đơn hàng của tôi
+</a>
+
+<a href="{{ route('client.account.profile') }}"
+   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+    Tài khoản của tôi
+</a>
+
+<a href="{{ route('client.account.password') }}"
+   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+    Đổi mật khẩu
+</a>
                                 @if(Auth::user()->role === 'admin' || Auth::user()->role === 'staff')
                                     <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm text-indigo-600 font-bold hover:bg-indigo-50">Vào trang quản trị</a>
                                 @endif
-                                <form method="POST" action="{{ route('admin.logout') }}">
+                                <form method="POST" action="{{ route('client.logout') }}">
                                     @csrf
                                     <button type="submit" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">Đăng xuất</button>
                                 </form>
                             @else
-                                <a href="{{ route('admin.login') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-bold">Đăng nhập</a>
-                                <a href="#" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">Đăng ký</a>
+                                <a href="{{ route('client.login') }}"
+   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-bold">
+    Đăng nhập
+</a>
+
+<a href="{{ route('client.register') }}"
+   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+    Đăng ký
+</a>
                             @endauth
                         </div>
                     </div>
 
                     {{-- Cart Icon --}}
                     <button class="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all">
-                        <i class="fa-solid fa-bag-shopping text-xl"></i>
+                        <a href="{{ route('client.cart.index') }}" class="relative">
+    <i class="fa fa-shopping-cart text-xl"></i>
+
+    @auth
+        <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">
+            {{ Auth::user()->cart?->items->count() ?? 0 }}
+        </span>
+    @endauth
+</a>
                         {{-- Badge số lượng --}}
                         <span class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white">0</span>
                     </button>
@@ -216,8 +243,16 @@
                                     </div>
                                 </a>
                             @else
-                                <a href="{{ route('admin.login') }}" class="block w-full py-3 bg-slate-900 text-white text-center rounded-xl font-bold mb-3">Đăng nhập</a>
-                                <a href="#" class="block w-full py-3 border border-slate-300 text-slate-700 text-center rounded-xl font-bold">Đăng ký</a>
+                                <a href="{{ route('client.login') }}"
+   class="block w-full py-3 bg-slate-900 text-white text-center rounded-xl font-bold mb-3">
+    Đăng nhập
+</a>
+
+<a href="{{ route('client.register') }}"
+   class="block w-full py-3 border border-slate-300 text-slate-700 text-center rounded-xl font-bold">
+    Đăng ký
+</a>
+
                             @endauth
                         </div>
                     </div>

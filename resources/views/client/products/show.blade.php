@@ -115,9 +115,8 @@
                             <div x-show="errorMsg" x-transition class="text-rose-600 text-[11px] font-bold flex items-center gap-1 mt-1">
                                 <i class="fa-solid fa-circle-exclamation"></i> <span x-text="errorMsg"></span>
                             </div>
-                        @else
-                            <input type="hidden" name="variant_id" value="{{ $product->variants->first()->id ?? '' }}">
-                        @endif
+                            @endif
+                        
 
                         {{-- Control Bar (Qty & Price) --}}
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
