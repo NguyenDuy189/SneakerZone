@@ -121,44 +121,39 @@ class ProductController extends Controller
     public function show($slug)
     {
         try {
-            // =============================================================
-            // 1. LOAD SẢN PHẨM & QUAN HỆ (Đã sửa lỗi Review & Load Size/Màu)
-            // =============================================================
+            // 1. Load sản phẩm
             $product = Product::with([
                 'category', 
                 'brand', 
                 'gallery_images',
-                // Load sâu để lấy được tên thuộc tính (Ví dụ: Variant A -> AttributeValue (Đỏ) -> Attribute (Màu sắc))
-                'variants.attributeValues.attribute', 
-                // --- FIX LỖI Ở ĐÂY: Bỏ điều kiện where('status', 'approved') ---
-                'reviews' => fn($q) => $q->latest()->take(5),
-                'reviews.user'
+                'variants.attributeValues.attribute' 
             ])
             ->where('slug', $slug)
-            ->where('status', 'published')
+            ->where('status', 'published') // Lưu ý: Cột status này là của bảng Product (vẫn giữ nguyên)
             ->firstOrFail();
 
-            // Tăng lượt xem (Nếu bảng products chưa có cột 'views' thì hãy comment dòng này lại)
-            // $product->increment('views'); 
+            // 2. Lấy Review (SỬA LẠI ĐOẠN NÀY)
+            $reviews = $product->reviews()
+                ->with('user')
+                ->where('is_approved', true) // <--- SỬA: Dùng cột 'is_approved' thay vì 'status'
+                ->latest()
+                ->paginate(5);
 
-            // =============================================================
-            // 2. XỬ LÝ GOM NHÓM THUỘC TÍNH (Để hiển thị nút bấm Size/Màu)
-            // =============================================================
+            // 3. Tính điểm trung bình (CŨNG PHẢI SỬA)
+            $avgRating = $product->reviews()
+                ->where('is_approved', true) // <--- SỬA: Dùng cột 'is_approved'
+                ->avg('rating') ?? 0;
+
+            // 4. Xử lý thuộc tính (Logic cũ giữ nguyên)
             $groupedAttributes = collect();
-
             if ($product->variants) {
                 foreach ($product->variants as $variant) {
-                    // Chỉ lấy thuộc tính của các biến thể còn hàng
                     if ($variant->stock_quantity > 0) { 
                         foreach ($variant->attributeValues as $attrValue) {
-                            $attrName = $attrValue->attribute->name; // VD: Size, Màu sắc
-                            
-                            // Nếu chưa có nhóm này thì tạo mới
+                            $attrName = $attrValue->attribute->name;
                             if (!$groupedAttributes->has($attrName)) {
                                 $groupedAttributes->put($attrName, collect());
                             }
-                            
-                            // Thêm giá trị vào nhóm (tránh trùng lặp)
                             if (!$groupedAttributes[$attrName]->contains('id', $attrValue->id)) {
                                 $groupedAttributes[$attrName]->push($attrValue);
                             }
@@ -167,26 +162,20 @@ class ProductController extends Controller
                 }
             }
 
-            // =============================================================
-            // 3. TẠO MAP DỮ LIỆU CHO JAVASCRIPT (AlpineJS)
-            // =============================================================
-            // Giúp JS biết: Khi chọn (Màu Đỏ + Size 40) thì là Variant ID nào?
+            // 5. Map dữ liệu biến thể
             $variantMap = $product->variants->mapWithKeys(function ($variant) use ($product) {
                 return [
                     $variant->id => [
                         'id' => $variant->id,
-                        // Lấy mảng ID các thuộc tính: VD [10, 25] (Màu Đỏ ID 10, Size 40 ID 25)
                         'attributes' => $variant->attributeValues->pluck('id')->sort()->values()->all(),
                         'stock' => $variant->stock_quantity,
-                        'price' => $variant->price ?? $product->price_min, 
+                        'price' => $variant->price ?? $product->price_regular,
                         'sku' => $variant->sku
                     ]
                 ];
             });
 
-            // =============================================================
-            // 4. LẤY SẢN PHẨM LIÊN QUAN
-            // =============================================================
+            // 6. Sản phẩm liên quan
             $relatedProducts = Product::where('category_id', $product->category_id)
                 ->where('id', '!=', $product->id)
                 ->where('status', 'published')
@@ -194,27 +183,18 @@ class ProductController extends Controller
                 ->take(4)
                 ->get();
 
-            // =============================================================
-            // 5. TRẢ VỀ VIEW
-            // =============================================================
             return view('client.products.show', compact(
                 'product', 
-                'relatedProducts', 
-                'groupedAttributes', // Biến này để vẽ nút chọn Size/Màu
-                'variantMap'         // Biến này để JS xử lý logic chọn
+                'reviews', 
+                'avgRating', 
+                'groupedAttributes', 
+                'variantMap', 
+                'relatedProducts'
             ));
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('client.products.index')->with('error', 'Sản phẩm không tồn tại.');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("Product Detail Error: " . $e->getMessage());
-            
-            // --- BẬT DÒNG NÀY ĐỂ XEM LỖI NẾU CẦN ---
-            /* The line `// dd(->getMessage(), ->getTraceAsString());` is a debugging statement in
-            PHP. */
-            dd($e->getMessage(), $e->getTraceAsString());
-            
-            return redirect()->route('client.products.index')->with('error', 'Có lỗi xảy ra khi tải trang chi tiết.');
+            \Illuminate\Support\Facades\Log::error("Error: " . $e->getMessage());
+            return redirect()->route('client.products.index')->with('error', 'Có lỗi xảy ra.');
         }
     }
 }
