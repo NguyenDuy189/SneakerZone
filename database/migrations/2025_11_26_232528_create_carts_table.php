@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('cascade');
             $table->string('session_id')->nullable(); // Cho khách vãng lai
+            $table->string('discount_code')->nullable(); // Lưu mã code (VD: SALE10)
+            $table->decimal('discount_amount', 15, 2)->default(0); // Lưu số tiền đã giảm
             $table->timestamps();
         });
     }

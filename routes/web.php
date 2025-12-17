@@ -35,7 +35,7 @@ use App\Http\Controllers\Admin\FlashSaleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\DiscountController;
-
+use App\Http\Controllers\Client\CheckoutController;
 // Middleware
 use App\Http\Middleware\CheckRole;
 
@@ -67,6 +67,22 @@ Route::name('client.')->group(function () {
     Route::middleware('auth')->group(function() {
         // Lưu ý: Đang dùng ClientReviewController (Alias đã khai báo ở trên)
         Route::post('reviews/store', [ClientReviewController::class, 'store'])->name('reviews.store');
+
+        Route::group(['prefix' => 'cart', 'as' => 'carts.'], function () { 
+            Route::get('/', [CartController::class, 'index'])->name('index');
+            Route::post('/add', [CartController::class, 'add'])->name('add');
+            Route::post('/update', [CartController::class, 'update'])->name('update');
+            Route::get('/remove/{id}', [CartController::class, 'remove'])->name('remove');
+
+            Route::post('/apply-discount', [CartController::class, 'applyDiscount'])->name('apply_discount');
+            Route::post('/remove-discount', [CartController::class, 'removeDiscount'])->name('remove_discount');
+        });
+    });
+
+    // Sửa thành: Chỉ để 'checkouts.' (Nhớ có dấu chấm cuối)
+    Route::group(['prefix' => 'checkout', 'as' => 'checkouts.'], function() { 
+        Route::get('/', [CheckoutController::class, 'index'])->name('index');
+        Route::post('/process', [CheckoutController::class, 'process'])->name('process');
     });
     // 5.đăng kí,đăng nhập
     Route::middleware('guest')->group(function () {
