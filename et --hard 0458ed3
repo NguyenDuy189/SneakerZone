@@ -1,0 +1,51 @@
+[33m26ab066[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/client-product[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33m6aae713[m[33m ([m[1;31morigin/feature/client-product[m[33m)[m HEAD@{1}: checkout: moving from feature/client-product to feature/client-product
+[33m6aae713[m[33m ([m[1;31morigin/feature/client-product[m[33m)[m HEAD@{2}: checkout: moving from feature/client-product-list to feature/client-product
+[33m0458ed3[m[33m ([m[1;32mfeature/client-product-list[m[33m)[m HEAD@{3}: commit: Client: home page + product listing initial implementation
+[33md23cb39[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{4}: checkout: moving from main to feature/client-product-list
+[33md23cb39[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{5}: commit: Admin Finish
+[33m8688a52[m HEAD@{6}: pull origin main: Fast-forward
+[33m6b7f09c[m HEAD@{7}: checkout: moving from feature/admin-banners to main
+[33mc37487d[m[33m ([m[1;31morigin/feature/admin-banners[m[33m, [m[1;32mfeature/admin-banners[m[33m)[m HEAD@{8}: checkout: moving from feature/admin-banners to feature/admin-banners
+[33mc37487d[m[33m ([m[1;31morigin/feature/admin-banners[m[33m, [m[1;32mfeature/admin-banners[m[33m)[m HEAD@{9}: checkout: moving from feature/admin-banners to feature/admin-banners
+[33mc37487d[m[33m ([m[1;31morigin/feature/admin-banners[m[33m, [m[1;32mfeature/admin-banners[m[33m)[m HEAD@{10}: commit (merge): feature/admin-banners
+[33mcb49ad7[m HEAD@{11}: checkout: moving from main to feature/admin-banners
+[33m6b7f09c[m HEAD@{12}: pull origin main: Fast-forward
+[33m26ab066[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/client-product[m[33m)[m HEAD@{13}: checkout: moving from feature/admin-banners to main
+[33mcb49ad7[m HEAD@{14}: commit: feature/admin-banners
+[33m26ab066[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/client-product[m[33m)[m HEAD@{15}: checkout: moving from main to feature/admin-banners
+[33m26ab066[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/client-product[m[33m)[m HEAD@{16}: pull origin main: Fast-forward
+[33md9390d0[m HEAD@{17}: checkout: moving from main to main
+[33md9390d0[m HEAD@{18}: checkout: moving from main to main
+[33md9390d0[m HEAD@{19}: checkout: moving from feature/admin-orders to main
+[33m18bd35b[m[33m ([m[1;31morigin/feature/admin-orders[m[33m, [m[1;32mfeature/admin-orders[m[33m)[m HEAD@{20}: checkout: moving from feature/admin-settings to feature/admin-orders
+[33m4ee7575[m[33m ([m[1;31morigin/feature/admin-settings[m[33m, [m[1;32mfeature/admin-settings[m[33m)[m HEAD@{21}: commit: feature/admin-settings
+[33ma9a46ba[m[33m ([m[1;31morigin/feature/admin-flash_sales[m[33m, [m[1;32mfeature/admin-flash_sales[m[33m)[m HEAD@{22}: checkout: moving from feature/admin-flash_sales to feature/admin-settings
+[33ma9a46ba[m[33m ([m[1;31morigin/feature/admin-flash_sales[m[33m, [m[1;32mfeature/admin-flash_sales[m[33m)[m HEAD@{23}: commit: feature/admin-flash_sales
+[33m16ca598[m[33m ([m[1;31morigin/feature/admin-shipping[m[33m, [m[1;32mfeature/admin-shipping[m[33m)[m HEAD@{24}: checkout: moving from feature/admin-shipping to feature/admin-flash_sales
+[33m16ca598[m[33m ([m[1;31morigin/feature/admin-shipping[m[33m, [m[1;32mfeature/admin-shipping[m[33m)[m HEAD@{25}: commit: feature/admin-shipping
+[33m7eb2e21[m[33m ([m[1;31morigin/feature/admin-inventory[m[33m, [m[1;32mfeature/admin-inventory[m[33m)[m HEAD@{26}: checkout: moving from feature/admin-inventory to feature/admin-shipping
+[33m7eb2e21[m[33m ([m[1;31morigin/feature/admin-inventory[m[33m, [m[1;32mfeature/admin-inventory[m[33m)[m HEAD@{27}: commit: feature/admin-inventory
+[33md704f0a[m[33m ([m[1;31morigin/feature/admin-suppliers[m[33m, [m[1;31morigin/feature/admin-supplier[m[33m, [m[1;32mfeature/admin-suppliers[m[33m, [m[1;32mfeature/admin-supplier[m[33m, [m[1;32mfeature/admin-purchaseorder[m[33m)[m HEAD@{28}: checkout: moving from feature/admin-purchaseorder to feature/admin-inventory
+[33md704f0a[m[33m ([m[1;31morigin/feature/admin-suppliers[m[33m, [m[1;31morigin/feature/admin-supplier[m[33m, [m[1;32mfeature/admin-suppliers[m[33m, [m[1;32mfeature/admin-supplier[m[33m, [m[1;32mfeature/admin-purchaseorder[m[33m)[m HEAD@{29}: checkout: moving from feature/admin-suppliers to feature/admin-purchaseorder
+[33md704f0a[m[33m ([m[1;31morigin/feature/admin-suppliers[m[33m, [m[1;31morigin/feature/admin-supplier[m[33m, [m[1;32mfeature/admin-suppliers[m[33m, [m[1;32mfeature/admin-supplier[m[33m, [m[1;32mfeature/admin-purchaseorder[m[33m)[m HEAD@{30}: checkout: moving from feature/admin-supplier to feature/admin-suppliers
+[33md704f0a[m[33m ([m[1;31morigin/feature/admin-suppliers[m[33m, [m[1;31morigin/feature/admin-supplier[m[33m, [m[1;32mfeature/admin-suppliers[m[33m, [m[1;32mfeature/admin-supplier[m[33m, [m[1;32mfeature/admin-purchaseorder[m[33m)[m HEAD@{31}: commit: feature/admin-supplier
+[33ma0ae445[m[33m ([m[1;31morigin/feature/admin-users[m[33m, [m[1;32mfeature/admin-users[m[33m)[m HEAD@{32}: checkout: moving from feature/admin-users to feature/admin-supplier
+[33ma0ae445[m[33m ([m[1;31morigin/feature/admin-users[m[33m, [m[1;32mfeature/admin-users[m[33m)[m HEAD@{33}: commit: feature/admin-users
+[33md9390d0[m HEAD@{34}: checkout: moving from main to feature/admin-users
+[33md9390d0[m HEAD@{35}: commit: fix: remove nested SneakerZone folder pushed by mistake
+[33m531d6a9[m HEAD@{36}: pull origin main: Fast-forward
+[33mf22d17e[m[33m ([m[1;32mfeature/admin-vouchers[m[33m)[m HEAD@{37}: checkout: moving from feature/admin-discounts to main
+[33m38e6f77[m[33m ([m[1;31morigin/feature/admin-discounts[m[33m, [m[1;32mfeature/admin-discounts[m[33m)[m HEAD@{38}: commit: feature/admin-discounts
+[33mf22d17e[m[33m ([m[1;32mfeature/admin-vouchers[m[33m)[m HEAD@{39}: checkout: moving from feature/admin-vouchers to feature/admin-discounts
+[33mf22d17e[m[33m ([m[1;32mfeature/admin-vouchers[m[33m)[m HEAD@{40}: checkout: moving from main to feature/admin-vouchers
+[33mf22d17e[m[33m ([m[1;32mfeature/admin-vouchers[m[33m)[m HEAD@{41}: pull origin main: Fast-forward
+[33m76289bf[m[33m ([m[1;31morigin/feature/admin-reviews[m[33m)[m HEAD@{42}: Branch: renamed refs/heads/feature/admin-reviews to refs/heads/main
+[33m76289bf[m[33m ([m[1;31morigin/feature/admin-reviews[m[33m)[m HEAD@{44}: commit: feature/admin-reviews
+[33m168aaba[m HEAD@{45}: commit: feature/admin-reviews
+[33m18bd35b[m[33m ([m[1;31morigin/feature/admin-orders[m[33m, [m[1;32mfeature/admin-orders[m[33m)[m HEAD@{46}: checkout: moving from feature/admin-orders to feature/admin-reviews
+[33m18bd35b[m[33m ([m[1;31morigin/feature/admin-orders[m[33m, [m[1;32mfeature/admin-orders[m[33m)[m HEAD@{47}: commit: feature/admin-orders
+[33mfc390dc[m HEAD@{48}: checkout: moving from main to feature/admin-orders
+[33mfc390dc[m HEAD@{49}: Branch: renamed refs/heads/main to refs/heads/main
+[33mfc390dc[m HEAD@{51}: Branch: renamed refs/heads/master to refs/heads/main
+[33mfc390dc[m HEAD@{53}: initial pull
