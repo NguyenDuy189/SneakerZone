@@ -19,7 +19,7 @@
         discount: {{ $cart->discount_amount ?? 0 }},
         currentCode: '{{ $cart->discount_code ?? '' }}'
     })" 
-    class="bg-[#F8F9FA] min-h-screen pb-20 font-sans">
+    class="bg-[#F8F9FA] min-h-screen pb-24 font-sans"> {{-- Tăng padding bottom để không bị che bởi mobile nav --}}
 
     <div class="container mx-auto px-4 max-w-6xl">
         
@@ -101,7 +101,6 @@
                                             <i class="fa-solid fa-minus text-[10px]"></i>
                                         </button>
                                         
-                                        {{-- QUAN TRỌNG: Đã thêm id="qty-..." --}}
                                         <input type="number" 
                                                id="qty-{{ $item->id }}" 
                                                value="{{ $item->quantity }}" 
@@ -180,7 +179,7 @@
                         <hr class="border-dashed border-slate-200 my-6">
 
                         {{-- TÍNH TIỀN --}}
-                        <div class="space-y-3">
+                        <div class="space-y-3 mb-6">
                             <div class="flex justify-between text-sm text-slate-600">
                                 <span>Tạm tính</span>
                                 <span class="font-bold" x-text="formatMoney(subtotal)"></span>
@@ -197,13 +196,16 @@
                             </div>
                         </div>
 
-                        {{-- Nút Thanh toán --}}
+                        {{-- [QUAN TRỌNG] NÚT THANH TOÁN CHO PC --}}
+                        {{-- Mình đã thêm style cứng background để chắc chắn hiện màu --}}
                         <a href="{{ route('client.checkouts.index') }}" 
-                           class="block w-full py-4 mt-6 bg-slate-900 text-white font-bold text-center rounded-xl hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-200 uppercase tracking-widest text-xs">
-                            Thanh toán ngay
+                           class="hidden lg:flex w-full py-4 rounded-xl font-bold text-white text-lg uppercase shadow-lg items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95"
+                           style="background-color: #4F46E5 !important; display: flex !important;">
+                            <span>Tiến hành thanh toán</span>
+                            <i class="fa-solid fa-arrow-right"></i>
                         </a>
 
-                        <div class="mt-4 flex items-center justify-center gap-2 text-slate-400 text-xl opacity-70">
+                        <div class="mt-6 flex items-center justify-center gap-2 text-slate-400 text-xl opacity-70">
                             <i class="fa-brands fa-cc-visa"></i>
                             <i class="fa-brands fa-cc-mastercard"></i>
                             <i class="fa-brands fa-cc-paypal"></i>
@@ -212,6 +214,23 @@
                 </div>
 
             </div>
+            
+            {{-- THANH THANH TOÁN DÍNH ĐÁY (FIXED FOOTER CHO MOBILE) --}}
+            {{-- Đã đổi từ <button submit> thành <a> link để hoạt động đúng --}}
+            <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 lg:hidden">
+                <div class="container mx-auto flex justify-between items-center gap-4">
+                    <div class="text-slate-900">
+                        <span class="block text-xs text-slate-500">Tổng cộng:</span>
+                        <span class="block font-black text-indigo-600 text-xl" x-text="formatMoney(subtotal - discount)"></span>
+                    </div>
+                    <a href="{{ route('client.checkouts.index') }}" 
+                       class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg uppercase text-sm shadow-md active:scale-95 transition-transform"
+                       style="background-color: #4F46E5;">
+                        Đặt hàng ngay
+                    </a>
+                </div>
+            </div>
+
         @else
             {{-- EMPTY STATE (Khi giỏ hàng trống) --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center my-10">
@@ -248,7 +267,7 @@
 
             // --- 1. CẬP NHẬT SỐ LƯỢNG ---
             updateQty(itemId, change) {
-                let inputEl = document.getElementById('qty-' + itemId); // Đã sửa view để có ID này
+                let inputEl = document.getElementById('qty-' + itemId);
                 if(!inputEl) return;
 
                 let currentQty = parseInt(inputEl.value);
@@ -336,7 +355,7 @@
                         }
                         
                         // Reload nếu giỏ trống
-                        if (data.item_count === 0) { // Hoặc kiểm tra logic khác
+                        if (data.item_count === 0) { 
                             window.location.reload();
                         }
                     }

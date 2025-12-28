@@ -6,38 +6,45 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('orders', function (Blueprint $table) {
-            $table->id(); // Auto increment (Sẽ set start 2000 trong DB sau nếu muốn)
+            $table->id();
+
             $table->string('order_code')->unique();
-            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
-            
+            $table->foreignId('user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+
+            // Trạng thái đơn
             $table->string('status')->default('pending');
+
+            // Thanh toán
             $table->string('payment_status')->default('unpaid');
             $table->string('payment_method')->default('cod');
-            
-            $table->decimal('shipping_fee', 15, 2)->default(0);
+            $table->string('payment_gateway')->nullable(); // vnpay, momo, zalopay, shopeepay
+            $table->string('payment_transaction_code')->nullable();
+
+            // TIỀN – BẮT BUỘC THEO THỨ TỰ LOGIC
+            $table->decimal('subtotal', 15, 2)->default(0);
             $table->decimal('discount_amount', 15, 2)->default(0);
+            $table->string('voucher_code')->nullable();
+            $table->decimal('shipping_fee', 15, 2)->default(0);
             $table->decimal('total_amount', 15, 2);
-            
+
+            // Địa chỉ
             $table->foreignId('shipping_address_id')->nullable()->constrained('user_addresses');
             $table->foreignId('billing_address_id')->nullable()->constrained('user_addresses');
+            $table->json('shipping_address');
 
-            $table->json('shipping_address'); // Snapshot
             $table->text('note')->nullable();
-            
+
             $table->timestamps();
             $table->softDeletes();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('orders');

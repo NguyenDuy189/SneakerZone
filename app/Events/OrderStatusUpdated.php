@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\Order;
+use App\Models\OrderHistory;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -14,51 +15,111 @@ class OrderStatusUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $order;
-    public $action; // 'created' hoặc 'updated'
-    public $history;
+    public string $action;
+    public Order $order;
+    public ?OrderHistory $history;
 
-    public function __construct(Order $order, $action = 'updated', $history = null)
+    /**
+     * @param Order $order
+     * @param string $action (created, updated, cancelled, paid...)
+     * @param OrderHistory|null $history
+     */
+    public function __construct(Order $order, string $action = 'updated', ?OrderHistory $history = null)
     {
-        $this->order = $order;
-        $this->action = $action;
+        $this->order   = $order;
+        $this->action  = $action;
         $this->history = $history;
     }
 
-    public function broadcastOn()
+    /**
+     * Tên sự kiện để lắng nghe ở Client (Bỏ qua namespace)
+     * JS: .listen('.OrderStatusUpdated', (e) => { ... })
+     */
+    public function broadcastAs(): string
     {
-        // 1. Kênh riêng của đơn hàng (để update trang chi tiết)
-        $channels = [new PrivateChannel('orders.' . $this->order->id)];
+        return 'OrderStatusUpdated';
+    }
 
-        // 2. Kênh chung của admin (để update trang danh sách khi có đơn mới)
-        if ($this->action === 'created') {
-            $channels[] = new PrivateChannel('admin.orders');
+    /**
+     * Định nghĩa các kênh phát sóng
+     */
+    public function broadcastOn(): array
+    {
+        $channels = [];
+
+        // 1. Kênh riêng của đơn hàng (User đang xem chi tiết đơn)
+        $channels[] = new PrivateChannel('orders.' . $this->order->id);
+
+        // 2. Kênh cá nhân của User (Để reload danh sách đơn hàng)
+        if ($this->order->user_id) {
+            $channels[] = new PrivateChannel('users.' . $this->order->user_id);
         }
+
+        // 3. Kênh Admin (Thông báo chung cho quản trị viên)
+        $channels[] = new PrivateChannel('admin.orders');
 
         return $channels;
     }
 
-    public function broadcastWith()
+    /**
+     * Dữ liệu gửi đi (Payload)
+     * Tận dụng Accessor từ Model để code gọn hơn
+     */
+    public function broadcastWith(): array
     {
+        // Lấy thông tin khách hàng từ JSON shipping_address hoặc User gốc
+        // Model đã cast shipping_address thành array, nên không cần json_decode thủ công nữa
+        $shippingInfo = $this->order->shipping_address ?? [];
+        
+        $customerName = $shippingInfo['contact_name'] 
+                        ?? $shippingInfo['name'] 
+                        ?? optional($this->order->user)->name 
+                        ?? 'Khách lẻ';
+                        
+        $customerPhone = $shippingInfo['phone'] 
+                         ?? optional($this->order->user)->phone 
+                         ?? '';
+
         return [
-            'action' => $this->action,
-            'order_id' => $this->order->id,
-            'order_code' => $this->order->order_code,
-            'total' => number_format($this->order->total_amount, 0, ',', '.'),
-            'status' => $this->order->status,
-            'payment_status' => $this->order->payment_status,
-            'created_at' => $this->order->created_at->format('H:i d/m/Y'),
-            'customer_name' => $this->order->shipping_address['contact_name'] ?? 'Khách lẻ',
+            'action' => $this->action, // created, updated, cancelled...
+
+            // Thông tin đơn hàng (Dùng Accessor của Model)
+            'order' => [
+                'id'                   => $this->order->id,
+                'code'                 => $this->order->order_code,
+                
+                // Trạng thái & Màu sắc (Lấy từ Model)
+                'status'               => $this->order->status,
+                'status_label'         => $this->order->status_label, // Tự động lấy tiếng Việt
+                'status_badge'         => $this->order->status_badge, // Lấy class màu (danger, success...)
+                
+                // Thanh toán
+                'payment_method'       => $this->order->payment_method,
+                'payment_status'       => $this->order->payment_status,
+                'payment_status_label' => $this->order->payment_status_label,
+
+                // Tiền tệ
+                'total_formatted'      => $this->order->formatted_total, // "150.000 VNĐ"
+
+                // Thời gian (Gửi cả 2 dạng để JS linh hoạt)
+                'updated_at'           => $this->order->updated_at->toIso8601String(), // Dùng cho new Date()
+                'updated_at_pretty'    => $this->order->updated_at->format('H:i d/m/Y'), // Dùng để hiển thị ngay
+            ],
+
+            // Snapshot khách hàng
+            'customer' => [
+                'name'  => $customerName,
+                'phone' => $customerPhone,
+                'avatar' => optional($this->order->user)->avatar ?? 'default-avatar.png', // Nếu muốn hiện ảnh
+            ],
+
+            // Chi tiết lịch sử (người vừa thao tác)
             'history' => $this->history ? [
-                'user_name' => $this->history->user->full_name ?? 'Hệ thống',
                 'description' => $this->history->description,
-                'action_text' => match($this->history->action) {
-                    'created' => 'Tạo đơn hàng',
-                    'update_status' => 'Cập nhật trạng thái',
-                    default => 'Hệ thống'
-                },
-                'time' => $this->history->created_at->format('H:i d/m')
-            ] : null
+                'created_at'  => $this->history->created_at->format('H:i d/m/Y'),
+                'user_name'   => $this->history->user ? $this->history->user->name : 'Hệ thống',
+                'action_type' => $this->history->action // cancelled, created...
+            ] : null,
         ];
     }
 }

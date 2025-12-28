@@ -81,6 +81,29 @@ class ProductVariant extends Model
         return $this->stock_quantity >= $qty;
     }
 
+    // 1. Định nghĩa quan hệ 'color' để Controller gọi được with('color')
+    public function color()
+    {
+        // Trả về AttributeValue có loại là 'color' hoặc 'màu'
+        return $this->belongsToMany(AttributeValue::class, 'variant_attribute_values', 'product_variant_id', 'attribute_value_id')
+                    ->whereHas('attribute', function ($query) {
+                        $query->where('code', 'color')
+                              ->orWhere('name', 'like', '%Màu%');
+                    });
+    }
+
+    // 2. Định nghĩa quan hệ 'size' để Controller gọi được with('size')
+    public function size()
+    {
+        // Trả về AttributeValue có loại là 'size' hoặc 'kích thước'
+        return $this->belongsToMany(AttributeValue::class, 'variant_attribute_values', 'product_variant_id', 'attribute_value_id')
+                    ->whereHas('attribute', function ($query) {
+                        $query->where('code', 'size')
+                              ->orWhere('name', 'like', '%Size%')
+                              ->orWhere('name', 'like', '%Kích%');
+                    });
+    }
+
     // Chuẩn hóa giá Flash Sale
     public function getValidFlashSalePrice(float $flashSalePrice): float
     {
@@ -88,5 +111,31 @@ class ProductVariant extends Model
         return $flashSalePrice >= $this->original_price
             ? $this->original_price * 0.95
             : $flashSalePrice;
+    }
+
+    // Giúp gọi $variant->color sẽ trả về object Attributes Value (hoặc null)
+    public function getColorAttribute()
+    {
+        return $this->attributeValues->first(function ($item) {
+            // Tìm thuộc tính có tên chứa "Color" hoặc "Màu"
+            return str_contains(strtolower($item->attribute->name ?? ''), 'color') 
+                || str_contains(strtolower($item->attribute->name ?? ''), 'màu');
+        });
+    }
+
+    // Giúp gọi $variant->size sẽ trả về object Attributes Value
+    public function getSizeAttribute()
+    {
+        return $this->attributeValues->first(function ($item) {
+            // Tìm thuộc tính có tên chứa "Size" hoặc "Kích thước"
+            return str_contains(strtolower($item->attribute->name ?? ''), 'size') 
+                || str_contains(strtolower($item->attribute->name ?? ''), 'kích');
+        });
+    }
+
+    public function getPriceAttribute()
+    {
+        // Ưu tiên lấy giá sale, nếu bằng 0 thì lấy giá gốc
+        return $this->sale_price > 0 ? $this->sale_price : $this->original_price;
     }
 }

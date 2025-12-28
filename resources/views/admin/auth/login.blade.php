@@ -73,6 +73,11 @@
                     <span>Đăng nhập</span>
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
+
+                <p class="text-center text-sm text-slate-500 mt-6">
+                    Chưa có tài khoản?
+                    <a href="{{ route('client.register') }}" class="text-indigo-600 font-bold">Đăng ký</a>
+                </p>
             </form>
 
             <div class="mt-6 text-center text-xs text-slate-400">

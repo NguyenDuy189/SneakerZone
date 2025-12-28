@@ -56,4 +56,12 @@ class OrderItem extends Model
         // Mặc định Laravel tìm 'product_id'.
         return $this->belongsTo(Product::class, 'product_id'); 
     }
+
+    // --- [THÊM ĐOẠN NÀY VÀO] ---
+    public function productVariant()
+    {
+        // Giả định trong bảng order_items cột khóa ngoại là 'product_variant_id'
+        // Nếu tên cột của bạn khác (ví dụ: 'variant_id'), hãy sửa tham số thứ 2
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+    }
 }

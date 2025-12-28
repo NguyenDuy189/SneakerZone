@@ -14,16 +14,12 @@
     {{-- 2. ICONS (FontAwesome) --}}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    {{-- 3. TAILWIND CSS (CDN cho nhanh, production nên dùng Vite) --}}
+    {{-- 3. TAILWIND CSS --}}
     <script src="https://cdn.tailwindcss.com"></script>
     
-    {{-- 4. ALPINE.JS (Xử lý tương tác menu, modal) --}}
-{{-- 4. ALPINE & AOS --}}
+    {{-- 4. ALPINE.JS --}}
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
-    
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     
     {{-- 5. ANIMATE ON SCROLL (AOS) --}}
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
@@ -122,62 +118,58 @@
                         <button @click="userOpen = !userOpen" @click.outside="userOpen = false" class="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all">
                             <i class="fa-regular fa-user text-lg"></i>
                         </button>
-                        {{-- Dropdown Menu --}}
+                        
+                        {{-- Dropdown Menu (MERGED & FIXED) --}}
                         <div x-show="userOpen" x-transition.origin.top.right x-cloak 
                              class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
                             @auth
                                 <div class="px-4 py-2 border-b border-gray-50">
                                     <p class="text-xs text-slate-400">Xin chào,</p>
-                                    <p class="text-sm font-bold text-slate-800 truncate">{{ Auth::user()->name }}</p>
+                                    <p class="text-sm font-bold text-slate-800 truncate">{{ Auth::user()->full_name ?? Auth::user()->name }}</p>
                                 </div>
-                                <a href="{{ route('client.orders.index') }}"
-   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
-    Đơn hàng của tôi
-</a>
-
-<a href="{{ route('client.account.profile') }}"
-   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
-    Tài khoản của tôi
-</a>
-
-<a href="{{ route('client.account.password') }}"
-   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
-    Đổi mật khẩu
-</a>
+                                
+                                {{-- Link tới trang Đơn hàng (Dùng route mới của feature) --}}
+                                <a href="{{ route('client.account.orders') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+                                    Đơn hàng của tôi
+                                </a>
+                                
+                                {{-- Link tới trang Profile (Dùng route mới của feature) --}}
+                                <a href="{{ route('client.account.profile') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+                                    Tài khoản
+                                </a>
+                                
                                 @if(Auth::user()->role === 'admin' || Auth::user()->role === 'staff')
                                     <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm text-indigo-600 font-bold hover:bg-indigo-50">Vào trang quản trị</a>
                                 @endif
+                                
+                                {{-- Nút đăng xuất (Sửa lại thành client.logout cho đúng luồng) --}}
                                 <form method="POST" action="{{ route('client.logout') }}">
                                     @csrf
                                     <button type="submit" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">Đăng xuất</button>
                                 </form>
                             @else
-                                <a href="{{ route('client.login') }}"
-   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-bold">
-    Đăng nhập
-</a>
+                                <a href="{{ route('client.login') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-bold">
+                                    Đăng nhập
+                                </a>
 
-<a href="{{ route('client.register') }}"
-   class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
-    Đăng ký
-</a>
+                                <a href="{{ route('client.register') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+                                    Đăng ký
+                                </a>
                             @endauth
                         </div>
                     </div>
 
                     {{-- Cart Icon --}}
                     <button class="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all">
-                        <a href="{{ route('client.cart.index') }}" class="relative">
-    <i class="fa fa-shopping-cart text-xl"></i>
+                        <a href="{{ route('client.carts.index') }}" class="relative">
+                            <i class="fa fa-shopping-cart text-xl"></i>
 
-    @auth
-        <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">
-            {{ Auth::user()->cart?->items->count() ?? 0 }}
-        </span>
-    @endauth
-</a>
-                        {{-- Badge số lượng --}}
-                        <span class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white">0</span>
+                            @auth
+                                <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1 min-w-[16px] text-center">
+                                    {{ Auth::user()->cart?->items->count() ?? 0 }}
+                                </span>
+                            @endauth
+                        </a>
                     </button>
 
                     {{-- Mobile Menu Button --}}
@@ -231,28 +223,44 @@
                             <a href="#" class="block text-lg font-bold text-rose-500">Khuyến mãi</a>
                         </div>
 
+                        {{-- USER INFO SECTION --}}
                         <div class="border-t border-gray-100 px-6 py-6 bg-slate-50">
                             @auth
-                                <a href="#" class="flex items-center gap-3 mb-4">
-                                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                                        {{ substr(Auth::user()->name, 0, 1) }}
+                                {{-- Link tới Profile --}}
+                                <a href="{{ route('client.account.profile') }}" class="flex items-center gap-3 mb-4 group">
+                                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-indigo-200">
+                                        @if(Auth::user()->avatar)
+                                            <img src="{{ Storage::url(Auth::user()->avatar) }}" class="w-full h-full object-cover">
+                                        @else
+                                            {{ substr(Auth::user()->full_name ?? Auth::user()->name, 0, 1) }}
+                                        @endif
                                     </div>
                                     <div>
-                                        <p class="font-bold text-slate-900">{{ Auth::user()->name }}</p>
+                                        <p class="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ Auth::user()->full_name ?? Auth::user()->name }}</p>
                                         <p class="text-xs text-slate-500">Thành viên</p>
                                     </div>
                                 </a>
+
+                                {{-- Nút thao tác nhanh --}}
+                                <div class="grid grid-cols-2 gap-2 mb-4">
+                                     <a href="{{ route('client.account.orders') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-3 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600">Đơn hàng</a>
+                                     
+                                     {{-- Sửa route logout mobile --}}
+                                     <form method="POST" action="{{ route('client.logout') }}" class="block">
+                                        @csrf
+                                        <button type="submit" class="w-full text-sm font-medium text-rose-600 bg-white py-2 px-3 rounded border border-slate-200 hover:bg-rose-50">Đăng xuất</button>
+                                     </form>
+                                </div>
                             @else
                                 <a href="{{ route('client.login') }}"
-   class="block w-full py-3 bg-slate-900 text-white text-center rounded-xl font-bold mb-3">
-    Đăng nhập
-</a>
+                                   class="block w-full py-3 bg-slate-900 text-white text-center rounded-xl font-bold mb-3">
+                                   Đăng nhập
+                                </a>
 
-<a href="{{ route('client.register') }}"
-   class="block w-full py-3 border border-slate-300 text-slate-700 text-center rounded-xl font-bold">
-    Đăng ký
-</a>
-
+                                <a href="{{ route('client.register') }}"
+                                   class="block w-full py-3 border border-slate-300 text-slate-700 text-center rounded-xl font-bold">
+                                   Đăng ký
+                                </a>
                             @endauth
                         </div>
                     </div>
@@ -262,14 +270,14 @@
     </div>
 
     {{-- =========================================================== --}}
-    {{-- 4. MAIN CONTENT (Nơi chứa Banner, Danh mục, Sản phẩm) --}}
+    {{-- 4. MAIN CONTENT --}}
     {{-- =========================================================== --}}
     <main class="flex-grow">
         @yield('content')
     </main>
 
     {{-- =========================================================== --}}
-    {{-- 5. FOOTER (Chân trang chuyên nghiệp) --}}
+    {{-- 5. FOOTER --}}
     {{-- =========================================================== --}}
     <footer class="bg-slate-900 text-white pt-16 pb-8 border-t border-slate-800">
         <div class="container mx-auto px-4">
