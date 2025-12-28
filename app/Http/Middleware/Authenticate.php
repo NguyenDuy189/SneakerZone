@@ -16,6 +16,11 @@ class Authenticate extends Middleware
      */
     protected function redirectTo($request)
     {
+
+        if (! $request->expectsJson()) {
+            session()->flash('error', 'Bạn cần đăng nhập để sử dụng giỏ hàng.');
+            return route('login');
+        }
         if (! $request->expectsJson()) {
 
             // Nếu URL bắt đầu bằng /admin → redirect về admin login

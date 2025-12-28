@@ -1,0 +1,51 @@
+[33mebbf5ad[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/client-carts[m[33m, [m[1;31morigin/feature/client-carts[m[33m)[m Merge remote-tracking branch 'origin/main' into feature/client-carts
+[33mf7094b5[m Lưu code tạm thời
+[33m99c099a[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Merge pull request #22 from NguyenDuy189/feature/cart-cuong
+[33m0e37d75[m[33m ([m[1;31morigin/feature/cart-cuong[m[33m)[m Resolve conflicts - keep my code
+[33m9050351[m Merge pull request #21 from NguyenDuy189/feature/client-carts
+[33m64d7459[m feature/client-carts
+[33m36050a1[m Fix cart logic & product detail
+[33m49b670c[m Merge main into feature/cart (use main version of routes/web.php)
+[33m8e92f26[m WIP: feature cart - save local changes
+[33m326efc1[m Merge pull request #20 from NguyenDuy189/feature/client-product
+[33mb97a771[m[33m ([m[1;31morigin/feature/client-product[m[33m, [m[1;32mfeature/client-product[m[33m)[m Fix lại trang chủ và chi tiết sản phẩm
+[33m3301b08[m Merge pull request #19 from NguyenDuy189/feature/client-product
+[33m65dbdf9[m feature/client-product
+[33m0458ed3[m[33m ([m[1;32mfeature/client-product-list[m[33m)[m Client: home page + product listing initial implementation
+[33md23cb39[m Admin Finish
+[33m8688a52[m Merge pull request #17 from NguyenDuy189/feature/admin-banners
+[33mc37487d[m[33m ([m[1;31morigin/feature/admin-banners[m[33m, [m[1;32mfeature/admin-banners[m[33m)[m feature/admin-banners
+[33mcb49ad7[m feature/admin-banners
+[33m6b7f09c[m Merge pull request #15 from NguyenDuy189/feature/client-product
+[33m6aae713[m Fix hien thi san pham
+[33m26ab066[m Merge pull request #14 from NguyenDuy189/feature/admin-settings
+[33m592c2a6[m Merge pull request #13 from NguyenDuy189/feature/admin-flash_sales
+[33m4ee7575[m[33m ([m[1;31morigin/feature/admin-settings[m[33m, [m[1;32mfeature/admin-settings[m[33m)[m feature/admin-settings
+[33ma9a46ba[m[33m ([m[1;31morigin/feature/admin-flash_sales[m[33m, [m[1;32mfeature/admin-flash_sales[m[33m)[m feature/admin-flash_sales
+[33mae29731[m Merge pull request #12 from NguyenDuy189/feature/admin-shipping
+[33m16ca598[m[33m ([m[1;31morigin/feature/admin-shipping[m[33m, [m[1;32mfeature/admin-shipping[m[33m)[m feature/admin-shipping
+[33m7eb2e21[m[33m ([m[1;31morigin/feature/admin-inventory[m[33m, [m[1;32mfeature/admin-inventory[m[33m)[m feature/admin-inventory
+[33m51a89fa[m Merge pull request #11 from NguyenDuy189/feature/admin-suppliers
+[33md704f0a[m[33m ([m[1;31morigin/feature/admin-suppliers[m[33m, [m[1;31morigin/feature/admin-supplier[m[33m, [m[1;32mfeature/admin-suppliers[m[33m, [m[1;32mfeature/admin-supplier[m[33m, [m[1;32mfeature/admin-purchaseorder[m[33m)[m feature/admin-supplier
+[33mfe3e8b5[m Merge pull request #10 from NguyenDuy189/feature/admin-users
+[33ma0ae445[m[33m ([m[1;31morigin/feature/admin-users[m[33m, [m[1;32mfeature/admin-users[m[33m)[m feature/admin-users
+[33md9390d0[m fix: remove nested SneakerZone folder pushed by mistake
+[33m531d6a9[m Merge pull request #8 from NguyenDuy189/feature/admin-discounts
+[33m38e6f77[m[33m ([m[1;31morigin/feature/admin-discounts[m[33m, [m[1;32mfeature/admin-discounts[m[33m)[m feature/admin-discounts
+[33m21ed95e[m Merge pull request #7 from NguyenDuy189/feature/client-product-list
+[33mbe8ec60[m feature/client-product-list
+[33mf22d17e[m[33m ([m[1;32mfeature/admin-vouchers[m[33m)[m Merge pull request #6 from NguyenDuy189/feature/admin-reviews
+[33m76289bf[m[33m ([m[1;31morigin/feature/admin-reviews[m[33m)[m feature/admin-reviews
+[33mdd30a8e[m Merge pull request #5 from NguyenDuy189/feature/admin-reviews
+[33m168aaba[m feature/admin-reviews
+[33mae296ca[m Merge pull request #4 from NguyenDuy189/feature/admin-orders
+[33m18bd35b[m[33m ([m[1;31morigin/feature/admin-orders[m[33m, [m[1;32mfeature/admin-orders[m[33m)[m feature/admin-orders
+[33mfc390dc[m Merge pull request #3 from NguyenDuy189/feature/admin-products
+[33m9b2eab6[m[33m ([m[1;31morigin/feature/admin-products[m[33m)[m feature/admin-products
+[33m9ceae83[m Merge pull request #2 from NguyenDuy189/feature/admin-attribute
+[33mdab7b3c[m[33m ([m[1;31morigin/feature/admin-attribute[m[33m)[m feature/admin-attribute
+[33m0a8f642[m Merge pull request #1 from NguyenDuy189/feature/admin-brands
+[33m9e2584b[m[33m ([m[1;31morigin/feature/admin-categories[m[33m, [m[1;31morigin/feature/admin-brands[m[33m)[m feature/admin-brands
+[33maa95cb6[m First commit
+[33m5d4b4d4[m First push
+[33md012dba[m Initial commit
