@@ -10,6 +10,7 @@ class OrderSeeder extends Seeder
 {
     public function run()
     {
+        // 1. DỌN DẸP DỮ LIỆU CŨ (Chỉ xóa dữ liệu liên quan đến đơn hàng)
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         DB::table('orders')->truncate();
         DB::table('order_items')->truncate();
@@ -17,26 +18,40 @@ class OrderSeeder extends Seeder
         DB::table('reviews')->truncate();
         DB::table('carts')->truncate();
         DB::table('cart_items')->truncate();
-        DB::table('inventory_logs')->truncate();
+        
+        // LƯU Ý: Không truncate inventory_logs ở đây nữa 
+        // để tránh mất dữ liệu nhập hàng từ PurchaseOrderSeeder
+        // DB::table('inventory_logs')->truncate(); 
+
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // Lấy toàn bộ khách hàng và variant
+        // 2. LẤY DỮ LIỆU NỀN
         $users = DB::table('users')->where('role', 'customer')->get();
+        // Nếu không có customer nào, lấy tạm tất cả user
+        if ($users->isEmpty()) {
+            $users = DB::table('users')->get();
+        }
+
         $variants = DB::table('product_variants')->get();
         $products = DB::table('products')->get();
 
-        if ($users->count() == 0 || $variants->count() == 0) {
-            dd("❌ Không có user or product_variant để seed Order.");
+        if ($users->isEmpty() || $variants->isEmpty()) {
+            $this->command->warn("❌ Không có user hoặc product_variant để seed Order.");
+            return;
         }
 
         // ===========================
-        //  TẠO 10 ĐƠN HÀNG NGẪU NHIÊN
+        // 3. TẠO 10 ĐƠN HÀNG NGẪU NHIÊN
         // ===========================
         for ($i = 0; $i < 10; $i++) {
 
             $user = $users->random();
-            $variant = $variants->random();
-            $product = $products->firstWhere('id', $variant->product_id);
+            $variant = $variants->random(); // Lấy biến thể ngẫu nhiên
+            
+            // Lấy lại thông tin variant mới nhất từ DB để đảm bảo tồn kho chính xác
+            $currentVariant = DB::table('product_variants')->where('id', $variant->id)->first();
+            
+            $product = $products->firstWhere('id', $currentVariant->product_id);
 
             // Fake shipping info
             $shippingInfo = [
@@ -45,7 +60,7 @@ class OrderSeeder extends Seeder
                 'address' => fake()->address()
             ];
 
-            // 1. Tạo giỏ hàng
+            // A. Tạo giỏ hàng (Cart)
             $cartId = DB::table('carts')->insertGetId([
                 'user_id' => $user->id,
                 'created_at' => now(),
@@ -54,17 +69,24 @@ class OrderSeeder extends Seeder
 
             DB::table('cart_items')->insert([
                 'cart_id' => $cartId,
-                'product_variant_id' => $variant->id,
+                'product_variant_id' => $currentVariant->id,
                 'quantity' => rand(1, 3),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
             $quantity = rand(1, 3);
-            $price = $variant->sale_price;
+            // Đảm bảo không bán quá số lượng tồn kho
+            if ($quantity > $currentVariant->stock_quantity) {
+                $quantity = $currentVariant->stock_quantity > 0 ? $currentVariant->stock_quantity : 0;
+            }
+            
+            if ($quantity == 0) continue; // Bỏ qua nếu hết hàng
+
+            $price = $currentVariant->sale_price > 0 ? $currentVariant->sale_price : $currentVariant->original_price;
             $shippingFee = 30000;
 
-            // 2. Tạo Order
+            // B. Tạo Order
             $orderId = DB::table('orders')->insertGetId([
                 'order_code' => 'ORD-' . strtoupper(Str::random(6)),
                 'user_id' => $user->id,
@@ -79,19 +101,19 @@ class OrderSeeder extends Seeder
                 'updated_at' => now()->subDays(rand(1, 15)),
             ]);
 
-            // 3. Order Items (snapshot)
+            // C. Order Items
             DB::table('order_items')->insert([
                 'order_id' => $orderId,
-                'product_variant_id' => $variant->id,
+                'product_variant_id' => $currentVariant->id,
                 'product_name' => $product->name,
-                'sku' => $variant->sku,
+                'sku' => $currentVariant->sku,
                 'thumbnail' => $product->thumbnail ?? '/img/products/demo.jpg',
                 'quantity' => $quantity,
                 'price' => $price,
                 'total_line' => $price * $quantity,
             ]);
 
-            // 4. Transaction
+            // D. Transaction
             DB::table('transactions')->insert([
                 'order_id' => $orderId,
                 'payment_method' => 'vnpay',
@@ -101,7 +123,7 @@ class OrderSeeder extends Seeder
                 'created_at' => now()->subDays(rand(1, 15)),
             ]);
 
-            // 5. Review
+            // E. Review
             DB::table('reviews')->insert([
                 'user_id' => $user->id,
                 'product_id' => $product->id,
@@ -112,18 +134,35 @@ class OrderSeeder extends Seeder
                 'created_at' => now(),
             ]);
 
-            // 6. Inventory Log
+            // F. Cập nhật tồn kho & Ghi Log (PHẦN QUAN TRỌNG)
+            
+            $oldStock = $currentVariant->stock_quantity;
+            $newStock = $oldStock - $quantity;
+
+            // 1. Trừ tồn kho trong bảng product_variants
+            DB::table('product_variants')
+                ->where('id', $currentVariant->id)
+                ->update(['stock_quantity' => $newStock]);
+
+            // 2. Ghi log với cấu trúc chuẩn
             DB::table('inventory_logs')->insert([
-                'product_variant_id' => $variant->id,
-                'change_amount' => -$quantity,
-                'remaining_stock' => $variant->stock_quantity - $quantity,
-                'type' => 'sale',
-                'reference_id' => $orderId,
-                'note' => 'Bán đơn hàng #' . $orderId,
-                'created_at' => now()->subDays(rand(1, 15)),
+                'product_variant_id' => $currentVariant->id,
+                'user_id'            => $user->id, // Người mua làm thay đổi kho
+                'type'               => 'sale',    // Loại giao dịch
+                
+                // Cột chuẩn mới
+                'old_quantity'       => $oldStock,
+                'change_amount'      => -$quantity, // Số âm vì là bán ra
+                'new_quantity'       => $newStock,
+                
+                'reference_type'     => 'order',
+                'reference_id'       => $orderId,
+                'note'               => 'Bán đơn hàng #' . $orderId,
+                'created_at'         => now()->subDays(rand(1, 15)),
+                'updated_at'         => now(),
             ]);
         }
 
-        echo "✔ Đã seed 10 đơn hàng thành công!\n";
+        $this->command->info("✔ Đã seed 10 đơn hàng thành công!");
     }
 }

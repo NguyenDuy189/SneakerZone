@@ -62,14 +62,21 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
+        // Eager load user để tránh N+1 query, nhưng thông tin hiển thị chính vẫn lấy từ shipping_address
         $query = Order::with(['user', 'items']);
 
         if ($request->filled('keyword')) {
             $keyword = trim($request->keyword);
             $query->where(function($q) use ($keyword) {
                 $q->where('order_code', 'like', "%{$keyword}%")
+                  // Tìm trong JSON: Cú pháp này chỉ chạy trên MySQL 5.7+
                   ->orWhere('shipping_address->contact_name', 'like', "%{$keyword}%")
-                  ->orWhere('shipping_address->phone', 'like', "%{$keyword}%");
+                  ->orWhere('shipping_address->phone', 'like', "%{$keyword}%")
+                  // Tìm dự phòng trong bảng User nếu thông tin trong JSON bị thiếu
+                  ->orWhereHas('user', function($subQ) use ($keyword) {
+                      $subQ->where('name', 'like', "%{$keyword}%")
+                           ->orWhere('email', 'like', "%{$keyword}%");
+                  });
             });
         }
 

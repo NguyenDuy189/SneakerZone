@@ -13,12 +13,27 @@ return new class extends Migration
     {
         Schema::create('inventory_logs', function (Blueprint $table) {
             $table->id();
+
+            // Liên kết sản phẩm
             $table->foreignId('product_variant_id')->constrained('product_variants')->onDelete('cascade');
-            $table->integer('change_amount'); // +10 hoặc -5
-            $table->integer('remaining_stock');
-            $table->string('type'); // sale, import, return, check
-            $table->unsignedBigInteger('reference_id')->nullable(); // ID đơn hàng hoặc phiếu nhập
-            $table->string('note')->nullable();
+
+            // Liên kết người thực hiện (Admin/User)
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+
+            // --- CÁC CỘT SỐ LƯỢNG (QUAN TRỌNG) ---
+            $table->integer('old_quantity')->default(0)->comment('Tồn kho trước khi giao dịch'); // Bổ sung
+            $table->integer('change_amount')->comment('Số lượng thay đổi (+/-)'); 
+            $table->integer('new_quantity')->comment('Tồn kho sau khi giao dịch'); // Đổi tên từ remaining_stock cho khớp Model
+
+            // --- LOẠI GIAO DỊCH ---
+            $table->string('type')->index(); // sale, import, check, export...
+
+            // --- THAM CHIẾU (Polymorphic) ---
+            // Bổ sung reference_type để sửa lỗi SQLSTATE[42S22]
+            $table->string('reference_type')->nullable()->index()->comment('purchase_order, order, manual...'); 
+            $table->unsignedBigInteger('reference_id')->nullable()->index(); // ID của đơn hàng/phiếu nhập
+
+            $table->text('note')->nullable(); // Đổi thành text để lưu ghi chú dài
             $table->timestamps();
         });
     }

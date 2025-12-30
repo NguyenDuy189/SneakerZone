@@ -13,10 +13,20 @@ return new class extends Migration
     {
         Schema::create('po_items', function (Blueprint $table) {
             $table->id();
+            
+            // Khóa ngoại
             $table->foreignId('purchase_order_id')->constrained('purchase_orders')->onDelete('cascade');
-            $table->foreignId('product_variant_id')->constrained('product_variants');
+            $table->foreignId('product_variant_id')->constrained('product_variants')->onDelete('cascade');
+            
             $table->integer('quantity');
-            $table->decimal('import_price', 15, 2);
+            
+            // --- CHÚ Ý: Chỉ để 1 dòng này thôi ---
+            $table->decimal('import_price', 15, 2); 
+            // -------------------------------------
+
+            $table->decimal('subtotal', 15, 2)->nullable(); // Nên để nullable đề phòng
+            
+            $table->timestamps();
         });
     }
 

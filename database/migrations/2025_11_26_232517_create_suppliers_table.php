@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('phone')->nullable();
             $table->text('address')->nullable();
             $table->timestamps();
+            $table->softDeletes(); // Thêm cột deleted_at
         });
     }
 

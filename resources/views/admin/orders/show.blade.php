@@ -192,6 +192,7 @@
         {{-- RIGHT COLUMN: ACTIONS & INFO --}}
         <div class="lg:col-span-1 space-y-8">
             
+            
             {{-- 4. UPDATE STATUS FORM --}}
             <div class="bg-white rounded-2xl shadow-md shadow-indigo-500/10 border border-slate-200 overflow-hidden relative">
                 <div class="h-1 bg-indigo-600 w-full absolute top-0 left-0"></div>
@@ -358,12 +359,15 @@
                 
                 <div class="flex items-center gap-4 mb-6">
                     <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl font-bold text-indigo-600 uppercase">
-                        {{ substr($order->shipping_address['contact_name'] ?? 'U', 0, 1) }}
+                        {{-- Lấy chữ cái đầu của tên người nhận thực tế --}}
+                        {{ substr($order->receiver_name, 0, 1) }}
                     </div>
                     <div>
-                        <div class="font-bold text-slate-800">{{ $order->shipping_address['contact_name'] ?? 'Khách lẻ' }}</div>
+                        {{-- SỬA: Dùng Accessor receiver_name --}}
+                        <div class="font-bold text-slate-800">{{ $order->receiver_name }}</div>
+                        
                         <div class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded inline-block mt-1">
-                            {{ $order->user ? 'Thành viên' : 'Khách vãng lai' }}
+                            {{ $order->user_id ? 'Thành viên' : 'Khách vãng lai' }}
                         </div>
                     </div>
                 </div>
@@ -373,17 +377,17 @@
                         <div class="w-6 flex-shrink-0 flex justify-center text-slate-400"><i class="fa-solid fa-phone"></i></div>
                         <div>
                             <p class="text-xs text-slate-400 font-bold uppercase">Điện thoại</p>
-                            <p class="font-medium text-slate-700">{{ $order->shipping_address['phone'] ?? '---' }}</p>
+                            {{-- SỬA: Dùng Accessor receiver_phone --}}
+                            <p class="font-medium text-slate-700">{{ $order->receiver_phone }}</p>
                         </div>
                     </div>
                     <div class="flex gap-3">
                         <div class="w-6 flex-shrink-0 flex justify-center text-slate-400"><i class="fa-solid fa-location-dot"></i></div>
                         <div>
                             <p class="text-xs text-slate-400 font-bold uppercase">Địa chỉ giao hàng</p>
+                            {{-- SỬA: Dùng Accessor full_address --}}
                             <p class="font-medium text-slate-700 leading-relaxed">
-                                {{ $order->shipping_address['address'] ?? '' }}<br>
-                                {{ $order->shipping_address['ward'] ?? '' }} - {{ $order->shipping_address['district'] ?? '' }}<br>
-                                {{ $order->shipping_address['city'] ?? '' }}
+                                {{ $order->full_address }}
                             </p>
                         </div>
                     </div>

@@ -10,20 +10,24 @@ class InventoryLog extends Model
 {
     use HasFactory;
 
-    // Các loại giao dịch kho
-    const TYPE_IMPORT = 'import'; // Nhập hàng
-    const TYPE_SALE   = 'sale';   // Bán hàng
-    const TYPE_RETURN = 'return'; // Khách trả hàng
-    const TYPE_CHECK  = 'check';  // Kiểm kê/Cân bằng kho
+    // Các hằng số định nghĩa loại giao dịch
+    const TYPE_IMPORT = 'import'; // Nhập hàng từ NCC
+    const TYPE_SALE   = 'sale';   // Bán hàng cho khách
+    const TYPE_RETURN = 'return'; // Khách trả lại hàng
+    const TYPE_CHECK  = 'check';  // Kiểm kê kho (cân bằng)
+    const TYPE_CANCEL = 'cancel'; // Hủy đơn hàng (hoàn kho)
+
+    protected $table = 'inventory_logs';
 
     protected $fillable = [
         'product_variant_id',
-        'user_id',        // Người thực hiện (Admin hoặc Khách mua)
-        'old_quantity',   // Tồn cũ
-        'change_amount',  // Số lượng thay đổi (+/-)
-        'new_quantity',   // Tồn mới
-        'type',           // Loại giao dịch
-        'reference_id',   // ID đơn hàng hoặc PO
+        'user_id',          // Người thực hiện
+        'old_quantity',     // Tồn đầu
+        'change_amount',    // Số lượng thay đổi (+/-)
+        'new_quantity',     // Tồn cuối
+        'type',             // Loại giao dịch (import/sale...)
+        'reference_type',   // purchase_order / order / manual
+        'reference_id',     // ID tham chiếu
         'note',
     ];
 
@@ -31,13 +35,16 @@ class InventoryLog extends Model
 
     public function variant(): BelongsTo
     {
+        // withTrashed: Giữ log hiển thị được ngay cả khi biến thể SP đã bị xóa mềm
         return $this->belongsTo(ProductVariant::class, 'product_variant_id')->withTrashed();
     }
 
     public function user(): BelongsTo
     {
+        // withDefault: Nếu User bị xóa khỏi hệ thống, log sẽ hiện là System
         return $this->belongsTo(User::class)->withDefault([
-            'name' => 'System/Guest' // Nếu user bị xóa hoặc null
+            'name' => 'System / Đã xóa',
+            'email' => 'N/A'
         ]);
     }
 }

@@ -8,23 +8,15 @@ class DashboardRequest extends FormRequest
 {
     public function authorize()
     {
-        return true; // Hoặc check permission: auth()->user()->can('view_dashboard')
+        return true;
     }
 
     public function rules()
     {
         return [
-            'date_range' => 'nullable|string|in:today,yesterday,7_days,30_days,this_month,last_month,custom',
-            'start_date' => 'required_if:date_range,custom|nullable|date|before_or_equal:end_date',
-            'end_date'   => 'required_if:date_range,custom|nullable|date|after_or_equal:start_date',
-        ];
-    }
-    
-    public function messages() 
-    {
-        return [
-            'start_date.before_or_equal' => 'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.',
-            // Thêm các message tiếng Việt khác...
+            'date_range' => 'nullable|string|in:custom,today,yesterday,7_days,30_days,this_month,last_month',
+            'start_date' => 'nullable|required_if:date_range,custom|date|before_or_equal:end_date',
+            'end_date'   => 'nullable|required_if:date_range,custom|date|after_or_equal:start_date',
         ];
     }
 }

@@ -3,34 +3,31 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Services\DashboardService;
+use App\Http\Requests\DashboardRequest;
+use App\Http\Services\DashboardService;
+use App\Http\Exports\DashboardExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DashboardController extends Controller
 {
-    protected $dashboardService;
+    protected $service;
 
-    public function __construct(DashboardService $dashboardService)
+    public function __construct(DashboardService $service)
     {
-        $this->dashboardService = $dashboardService;
+        $this->service = $service;
     }
 
-    /**
-     * Hiển thị Dashboard Admin
-     */
-    public function index(Request $request)
+    public function index(DashboardRequest $request)
     {
-        // 1. Validate dữ liệu đầu vào để bảo mật
-        $filters = $request->validate([
-            'date_range' => 'nullable|string|in:today,yesterday,7_days,30_days,this_month,last_month',
-        ]);
-
-        // 2. Lấy dữ liệu từ Service
-        $data = $this->dashboardService->getDashboardData($filters);
-
-        
-
-        // 3. Trả về View với dữ liệu
+        // Truyền cả request để service xử lý custom date
+        $data = $this->service->getDashboardData($request);
         return view('admin.dashboard.index', $data);
+    }
+
+    public function export(DashboardRequest $request)
+    {
+        $data = $this->service->getExportData($request);
+        $dateStr = now()->format('d-m-Y');
+        return Excel::download(new DashboardExport($data), "baocao-doanhthu-{$dateStr}.xlsx");
     }
 }

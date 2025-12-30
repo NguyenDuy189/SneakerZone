@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Order extends Model
 {
@@ -14,7 +15,7 @@ class Order extends Model
     //   CONSTANTS (TRẠNG THÁI)
     // ==============================
     const STATUS_PENDING   = 'pending';
-    const STATUS_CONFIRMED = 'confirmed'; // Hoặc 'processing' tùy quy ước
+    const STATUS_CONFIRMED = 'processing'; // Sửa lại 'processing' cho khớp với Controller
     const STATUS_SHIPPING  = 'shipping';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
@@ -43,11 +44,11 @@ class Order extends Model
      * Casts: Chuyển đổi dữ liệu tự động khi lấy từ DB ra
      */
     protected $casts = [
-        'total_amount'     => 'float',
-        'shipping_fee'     => 'float',
-        'discount_amount'  => 'float',
-        'created_at'       => 'datetime',
-        'paid_at'          => 'datetime',
+        'total_amount'    => 'float',
+        'shipping_fee'    => 'float',
+        'discount_amount' => 'float',
+        'created_at'      => 'datetime',
+        'paid_at'         => 'datetime',
         // Rất quan trọng: Tự động chuyển JSON trong DB thành Array trong PHP
         'shipping_address' => 'array', 
     ];
@@ -77,8 +78,6 @@ class Order extends Model
      */
     public function histories()
     {
-        // Mặc định sắp xếp cũ nhất trước -> để hiển thị timeline từ trên xuống dưới
-        // Hoặc latest() nếu muốn mới nhất lên đầu.
         return $this->hasMany(OrderHistory::class)->orderBy('created_at', 'desc');
     }
 
@@ -99,8 +98,76 @@ class Order extends Model
     }
 
     // ==============================
-    //   ACCESSORS (HÀM BỔ TRỢ)
+    //   ACCESSORS (HÀM BỔ TRỢ QUAN TRỌNG)
     // ==============================
+
+    /**
+     * Lấy tên người nhận hàng (Ưu tiên từ Shipping Address)
+     * View dùng: $order->receiver_name
+     */
+    public function getReceiverNameAttribute()
+    {
+        return $this->shipping_address['contact_name'] 
+            ?? $this->shipping_address['name'] 
+            ?? optional($this->user)->full_name 
+            ?? optional($this->user)->name 
+            ?? 'Khách vãng lai';
+    }
+
+    /**
+     * Lấy SĐT người nhận hàng
+     * View dùng: $order->receiver_phone
+     */
+    public function getReceiverPhoneAttribute()
+    {
+        return $this->shipping_address['phone'] 
+            ?? optional($this->user)->phone 
+            ?? '---';
+    }
+
+    /**
+     * Lấy địa chỉ giao hàng đầy đủ (Ghép chuỗi)
+     * View dùng: $order->full_address
+     */
+    // Trong file: App/Models/Order.php
+
+    // App\Models\Order.php
+
+    public function getFullAddressAttribute()
+    {
+        $data = $this->shipping_address;
+
+        // 1. Xử lý trường hợp quên khai báo $casts (Data vẫn là chuỗi JSON)
+        if (is_string($data)) {
+            $data = json_decode($data, true);
+        }
+
+        // 2. Nếu data rỗng hoặc không hợp lệ
+        if (!is_array($data) || empty($data)) {
+            return 'Chưa cập nhật địa chỉ giao hàng';
+        }
+
+        // 3. ƯU TIÊN 1: Lấy đúng key "address" (trường hợp của bạn hiện tại)
+        // Vì dữ liệu của bạn key 'address' đã chứa full: "a, Xã Đức Lĩnh..."
+        if (!empty($data['address'])) {
+            return $data['address'];
+        }
+
+        // 4. ƯU TIÊN 2: Xử lý lỗi chính tả (adress)
+        if (!empty($data['adress'])) {
+            return $data['adress'];
+        }
+
+        // 5. ƯU TIÊN 3: Dữ liệu bị tách lẻ (Cần ghép lại)
+        $parts = array_filter([
+            $data['street'] ?? null,
+            $data['ward'] ?? null,
+            $data['district'] ?? null,
+            $data['city'] ?? null
+        ]);
+
+        return !empty($parts) ? implode(', ', $parts) : 'Chưa cập nhật địa chỉ giao hàng';
+    }
 
     /**
      * Format tiền tệ hiển thị View
@@ -118,13 +185,12 @@ class Order extends Model
     public function getStatusBadgeAttribute()
     {
         return match ($this->status) {
-            self::STATUS_PENDING   => 'secondary', // Xám
-            'processing'           => 'primary',   // Xanh dương (Đang đóng gói)
-            self::STATUS_CONFIRMED => 'primary',
-            self::STATUS_SHIPPING  => 'info',      // Xanh nhạt
-            self::STATUS_COMPLETED => 'success',   // Xanh lá
-            self::STATUS_CANCELLED => 'danger',    // Đỏ
-            self::STATUS_RETURNED  => 'warning',   // Vàng
+            self::STATUS_PENDING   => 'warning',   // Vàng (Chờ xử lý)
+            self::STATUS_CONFIRMED => 'info',      // Xanh dương nhạt (Đang đóng gói)
+            self::STATUS_SHIPPING  => 'primary',   // Xanh dương đậm (Đang giao)
+            self::STATUS_COMPLETED => 'success',   // Xanh lá (Hoàn thành)
+            self::STATUS_CANCELLED => 'danger',    // Đỏ (Hủy)
+            self::STATUS_RETURNED  => 'secondary', // Xám (Trả hàng)
             default                => 'secondary',
         };
     }
@@ -137,8 +203,7 @@ class Order extends Model
     {
         return match ($this->status) {
             self::STATUS_PENDING   => 'Chờ xử lý',
-            'processing'           => 'Đang đóng gói',
-            self::STATUS_CONFIRMED => 'Đã xác nhận',
+            self::STATUS_CONFIRMED => 'Đang đóng gói',
             self::STATUS_SHIPPING  => 'Đang giao hàng',
             self::STATUS_COMPLETED => 'Hoàn thành',
             self::STATUS_CANCELLED => 'Đã hủy',
@@ -174,18 +239,28 @@ class Order extends Model
 
         return $query->where(function ($q) use ($keyword) {
             $q->where('order_code', 'like', "%{$keyword}%")
-              // Cú pháp tìm trong JSON của MySQL (->)
+              // Tìm trong JSON (MySQL 5.7+)
               ->orWhere('shipping_address->contact_name', 'like', "%{$keyword}%")
-              ->orWhere('shipping_address->phone', 'like', "%{$keyword}%");
+              ->orWhere('shipping_address->phone', 'like', "%{$keyword}%")
+              // Tìm dự phòng trong User nếu JSON lỗi
+              ->orWhereHas('user', function($subQ) use ($keyword) {
+                  $subQ->where('name', 'like', "%{$keyword}%")
+                       ->orWhere('email', 'like', "%{$keyword}%");
+              });
         });
     }
 
     /**
-     * Lọc theo trạng thái
+     * Boot Model: Tự động tạo mã đơn hàng nếu thiếu
      */
-    public function scopeByStatus($query, $status)
+    protected static function boot()
     {
-        if (!$status) return $query;
-        return $query->where('status', $status);
+        parent::boot();
+
+        static::creating(function ($order) {
+            if (empty($order->order_code)) {
+                $order->order_code = 'ORD-' . strtoupper(Str::random(10));
+            }
+        });
     }
 }
