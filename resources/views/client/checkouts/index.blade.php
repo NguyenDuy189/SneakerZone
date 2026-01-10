@@ -26,8 +26,7 @@
             </div>
         @endif
 
-        {{-- FORM CHÍNH: Bao quanh cả 2 cột để Submit được dữ liệu --}}
-        {{-- LƯU Ý QUAN TRỌNG: method="POST" và route đúng tên trong route:list --}}
+        {{-- FORM CHÍNH --}}
         <form action="{{ route('client.checkouts.process') }}" method="POST" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             @csrf
 
@@ -58,7 +57,6 @@
                                      .then(data => {
                                          if(data.error === 0) {
                                             this.provinces = data.data;
-                                            // Nếu có old data, trigger load lại huyện/xã
                                             if(this.selectedProvince) this.fetchDistricts(true);
                                          }
                                      })
@@ -70,16 +68,13 @@
                                      return;
                                  }
                                  
-                                 // Lưu tên Tỉnh (nếu không phải load lại từ old data)
                                  if(!isOldData) {
                                      let p = this.provinces.find(x => x.id == this.selectedProvince);
                                      this.provinceName = p ? p.full_name : '';
-                                     // Reset District/Ward khi chọn tỉnh mới
                                      this.districts = []; this.wards = []; 
                                      this.selectedDistrict = ''; this.selectedWard = '';
                                  }
                                  
-                                 // Gọi API lấy Quận/Huyện
                                  fetch(`https://esgoo.net/api-tinhthanh/2/${this.selectedProvince}.htm`)
                                      .then(response => response.json())
                                      .then(data => {
@@ -95,15 +90,12 @@
                                      return;
                                  }
 
-                                 // Lưu tên Quận
                                  if(!isOldData) {
                                      let d = this.districts.find(x => x.id == this.selectedDistrict);
                                      this.districtName = d ? d.full_name : '';
-                                     // Reset Ward
                                      this.wards = []; this.selectedWard = '';
                                  }
 
-                                 // Gọi API lấy Phường/Xã
                                  fetch(`https://esgoo.net/api-tinhthanh/3/${this.selectedDistrict}.htm`)
                                      .then(response => response.json())
                                      .then(data => {
@@ -118,30 +110,30 @@
                              }
                           }">
                         
-                        {{-- LIST ĐỊA CHỈ CŨ (Nếu user đã đăng nhập và có địa chỉ lưu) --}}
+                        {{-- LIST ĐỊA CHỈ CŨ --}}
                         @if($addresses->isNotEmpty())
                             <div class="space-y-3 mb-6">
                                 <p class="text-sm font-medium text-slate-700">Chọn địa chỉ:</p>
                                 @foreach($addresses as $addr)
                                     <label class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none hover:border-indigo-500 transition-all"
                                            :class="addressMode == '{{ $addr->id }}' ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50' : 'border-gray-200'">
-                                        <input type="radio" name="address_id" value="{{ $addr->id }}" class="sr-only" x-model="addressMode">
-                                        <span class="flex flex-1">
-                                            <span class="flex flex-col">
-                                                <span class="block text-sm font-bold text-gray-900">
-                                                    {{ $addr->name }} <span class="text-gray-500 font-normal mx-1">|</span> {{ $addr->phone }}
-                                                    @if($addr->is_default)
-                                                        <span class="ml-2 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-800 uppercase">Mặc định</span>
-                                                    @endif
-                                                </span>
-                                                <span class="mt-1 flex items-center text-sm text-gray-500">
-                                                    <i class="fa-solid fa-location-dot mr-2 text-indigo-400"></i>
-                                                    {{ $addr->full_address ?? ($addr->address . ', ' . $addr->city) }}
+                                            <input type="radio" name="address_id" value="{{ $addr->id }}" class="sr-only" x-model="addressMode">
+                                            <span class="flex flex-1">
+                                                <span class="flex flex-col">
+                                                    <span class="block text-sm font-bold text-gray-900">
+                                                        {{ $addr->name }} <span class="text-gray-500 font-normal mx-1">|</span> {{ $addr->phone }}
+                                                        @if($addr->is_default)
+                                                            <span class="ml-2 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-800 uppercase">Mặc định</span>
+                                                        @endif
+                                                    </span>
+                                                    <span class="mt-1 flex items-center text-sm text-gray-500">
+                                                        <i class="fa-solid fa-location-dot mr-2 text-indigo-400"></i>
+                                                        {{ $addr->full_address ?? ($addr->address . ', ' . $addr->city) }}
+                                                    </span>
                                                 </span>
                                             </span>
-                                        </span>
-                                        <i class="fa-solid fa-circle-check text-indigo-600 text-xl" x-show="addressMode == '{{ $addr->id }}'"></i>
-                                        <i class="fa-regular fa-circle text-gray-300 text-xl" x-show="addressMode != '{{ $addr->id }}'"></i>
+                                            <i class="fa-solid fa-circle-check text-indigo-600 text-xl" x-show="addressMode == '{{ $addr->id }}'"></i>
+                                            <i class="fa-regular fa-circle text-gray-300 text-xl" x-show="addressMode != '{{ $addr->id }}'"></i>
                                     </label>
                                 @endforeach
 
@@ -158,7 +150,6 @@
                                 </label>
                             </div>
                         @else
-                            {{-- Nếu không có địa chỉ cũ nào, mặc định là new --}}
                             <input type="hidden" name="address_id" value="new">
                         @endif
 
@@ -203,7 +194,6 @@
                                             <option :value="prov.id" x-text="prov.full_name" :selected="prov.id == selectedProvince"></option>
                                         </template>
                                     </select>
-                                    {{-- Input ẩn lưu tên để gửi về server --}}
                                     <input type="hidden" name="province_name" :value="provinceName">
                                     @error('province_name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 </div>
@@ -308,18 +298,39 @@
                             @endforeach
                         </ul>
 
-                        <div class="border-t border-gray-100 pt-4 space-y-2">
+                        {{-- PHẦN TÍNH TOÁN TIỀN --}}
+                        <div class="border-t border-gray-100 pt-4 space-y-3">
+                            {{-- Tạm tính --}}
                             <div class="flex justify-between text-sm text-gray-600">
                                 <p>Tạm tính</p>
                                 <p class="font-medium text-gray-900">{{ number_format($subtotal, 0, ',', '.') }}₫</p>
                             </div>
-                            @if($discount > 0)
-                            <div class="flex justify-between text-sm text-green-600">
-                                <p>Giảm giá</p>
-                                <p class="font-medium">-{{ number_format($discount, 0, ',', '.') }}₫</p>
-                            </div>
+                            
+                            {{-- Giảm giá (Chỉ hiện khi có discount > 0) --}}
+                            @if(isset($discount) && $discount > 0)
+                                <div class="flex justify-between text-sm text-emerald-600 font-medium">
+                                    <p class="flex items-center gap-1">
+                                        <i class="fa-solid fa-ticket"></i>
+                                        Giảm giá {{ $cart->discount_code ? '('.$cart->discount_code.')' : '' }}
+                                    </p>
+                                    <p>-{{ number_format($discount, 0, ',', '.') }}₫</p>
+                                </div>
                             @endif
-                            <div class="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-gray-100 mt-2">
+
+                            {{-- Phí vận chuyển --}}
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <p>Phí vận chuyển</p>
+                                <p class="font-medium text-gray-900">
+                                    @if(isset($shippingFee) && $shippingFee > 0)
+                                        {{ number_format($shippingFee, 0, ',', '.') }}₫
+                                    @else
+                                        Miễn phí
+                                    @endif
+                                </p>
+                            </div>
+
+                            {{-- Tổng cộng --}}
+                            <div class="flex justify-between text-lg font-bold text-slate-900 pt-3 border-t border-gray-100 mt-2">
                                 <p>Tổng cộng</p>
                                 <p class="text-xl text-indigo-600">{{ number_format($total, 0, ',', '.') }}₫</p>
                             </div>
@@ -407,7 +418,7 @@
 
                         </div>
 
-                        {{-- BUTTON SUBMIT: Nằm trong form nên nó sẽ kích hoạt POST --}}
+                        {{-- BUTTON SUBMIT --}}
                         <button type="submit" class="mt-8 w-full rounded-xl bg-indigo-600 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-xl hover:-translate-y-0.5 transition-all uppercase tracking-widest">
                             Xác nhận thanh toán
                         </button>

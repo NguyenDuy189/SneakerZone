@@ -76,7 +76,7 @@
 
                 <p class="text-center text-sm text-slate-500 mt-6">
                     Chưa có tài khoản?
-                    <a href="{{ route('client.register') }}" class="text-indigo-600 font-bold">Đăng ký</a>
+                    <a href="{{ route('register') }}" class="text-indigo-600 font-bold">Đăng ký</a>
                 </p>
             </form>
 

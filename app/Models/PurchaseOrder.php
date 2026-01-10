@@ -19,16 +19,16 @@ class PurchaseOrder extends Model
     protected $fillable = [
         'code',         // Mã phiếu (PO-2024...)
         'supplier_id',
-        'user_id',      // Người tạo phiếu
+        // 'user_id',   <-- Đã bỏ dòng này vì Database hiện tại chưa có cột user_id
         'status',
         'total_amount',
-        'note',
-        'expected_at',  // Ngày dự kiến hàng về
+        'note',         // Đã có trong DB
+        'expected_at',  // Đã có trong DB
     ];
 
     protected $casts = [
-        'expected_at' => 'datetime',
-        'total_amount' => 'decimal:0',
+        'expected_at'  => 'datetime',
+        'total_amount' => 'decimal:2', // Định dạng 2 số thập phân
     ];
 
     // --- RELATIONSHIPS ---
@@ -38,16 +38,18 @@ class PurchaseOrder extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    // Tạm thời comment lại quan hệ này vì chưa có cột user_id
+    /*
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    */
 
-    public function items()
+    public function items(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class, 'purchase_order_id');
     }
-
 
     // --- HELPERS ---
 

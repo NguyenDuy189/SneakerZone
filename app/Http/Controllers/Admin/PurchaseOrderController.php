@@ -19,16 +19,15 @@ class PurchaseOrderController extends Controller
 {
     /**
      * HIỂN THỊ DANH SÁCH PHIẾU NHẬP
-     * * Hỗ trợ tìm kiếm, lọc theo trạng thái, nhà cung cấp, ngày tháng.
      */
     public function index(Request $request)
     {
-        // Sử dụng Eager Loading để tối ưu truy vấn (tránh lỗi N+1)
-        $query = PurchaseOrder::with(['supplier', 'creator'])
-            ->withCount('items') // Đếm số sản phẩm trong phiếu
+        // Eager loading 'supplier'. Bỏ 'creator' nếu Model chưa định nghĩa để tránh lỗi
+        $query = PurchaseOrder::with(['supplier'])
+            ->withCount('items')
             ->latest('id');
 
-        // 1. Lọc theo từ khóa (Mã phiếu)
+        // 1. Lọc theo mã phiếu
         if ($request->filled('keyword')) {
             $keyword = trim($request->keyword);
             $query->where('code', 'like', "%{$keyword}%");
@@ -39,12 +38,12 @@ class PurchaseOrderController extends Controller
             $query->where('status', $request->status);
         }
 
-        // 3. Lọc theo Nhà cung cấp
+        // 3. Lọc theo NCC
         if ($request->filled('supplier_id')) {
             $query->where('supplier_id', $request->supplier_id);
         }
 
-        // 4. Lọc theo ngày tạo
+        // 4. Lọc theo ngày
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->date);
         }
@@ -60,22 +59,27 @@ class PurchaseOrderController extends Controller
      */
     public function create()
     {
-        // Chỉ lấy nhà cung cấp còn hoạt động
         $suppliers = Supplier::whereNull('deleted_at')->orderBy('name')->get();
 
-        // Lấy danh sách sản phẩm để chọn (Lưu ý: Nếu dữ liệu lớn nên dùng AJAX Select2)
+        // Load sản phẩm để chọn
         $products = ProductVariant::with('product')
             ->whereNull('deleted_at')
             ->whereHas('product', fn($q) => $q->whereNull('deleted_at'))
             ->get()
             ->map(function ($v) {
+                // Tạo tên hiển thị an toàn (tránh lỗi nếu color/size null)
+                $variantName = $v->product->name;
+                if ($v->color || $v->size) {
+                    $variantName .= " - " . ($v->color ?? '') . "/" . ($v->size ?? '');
+                }
+
                 return [
                     'id'    => $v->id,
-                    'name'  => $v->product->name . " - " . $v->color . "/" . $v->size,
+                    'name'  => $variantName,
                     'sku'   => $v->sku,
                     'image' => $v->image_url ?? $v->product->thumbnail,
                     'stock' => $v->stock_quantity,
-                    'price' => $v->original_price // Gợi ý giá nhập cũ
+                    'price' => $v->original_price
                 ];
             });
 
@@ -83,68 +87,52 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * XỬ LÝ LƯU PHIẾU NHẬP (STORE)
-     * * Validate chặt chẽ mảng items, tính toán tổng tiền, sử dụng Transaction.
+     * LƯU PHIẾU NHẬP (STORE)
      */
     public function store(Request $request)
     {
-        // 1. Lọc bỏ các dòng item rỗng (User bấm thêm dòng nhưng không nhập)
+        // 1. Làm sạch dữ liệu items
         $rawItems = $request->input('items', []);
         $cleanItems = array_filter($rawItems, function ($item) {
             return !empty($item['variant_id']) && !empty($item['quantity']) && isset($item['import_price']);
         });
         
-        // Merge lại mảng items đã làm sạch vào request để validate
         $request->merge(['items' => $cleanItems]);
 
-        // 2. Validation Rules
+        // 2. Validate
         $request->validate([
-            'supplier_id' => [
-                'required',
-                Rule::exists('suppliers', 'id')->whereNull('deleted_at')
-            ],
+            'supplier_id' => ['required', Rule::exists('suppliers', 'id')->whereNull('deleted_at')],
             'expected_at' => 'nullable|date|after_or_equal:today',
             'note'        => 'nullable|string|max:1000',
             'items'       => 'required|array|min:1|max:200',
-            
-            'items.*.variant_id' => [
-                'required',
-                'distinct', // Không cho phép chọn trùng sản phẩm trong 1 phiếu
-                Rule::exists('product_variants', 'id')->whereNull('deleted_at')
-            ],
-            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'items.*.variant_id' => ['required', 'distinct', Rule::exists('product_variants', 'id')->whereNull('deleted_at')],
+            'items.*.quantity'   => ['required', 'integer', 'min:1', 'max:1000000'],
             'items.*.import_price' => ['required', 'numeric', 'min:0', 'max:10000000000'],
-        ], [
-            'supplier_id.required'        => 'Vui lòng chọn nhà cung cấp.',
-            'items.required'              => 'Vui lòng nhập ít nhất 1 sản phẩm.',
-            'items.*.variant_id.distinct' => 'Sản phẩm trong phiếu không được trùng nhau.',
-            'items.*.quantity.min'        => 'Số lượng nhập phải lớn hơn 0.',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // 3. Tạo Purchase Order Header
+            // 3. Tạo mã phiếu PO-...
             $poCode = 'PO-' . date('ymd') . '-' . strtoupper(Str::random(5));
-            
-            // Kiểm tra trùng mã (dù hiếm)
             while (PurchaseOrder::where('code', $poCode)->exists()) {
                 $poCode = 'PO-' . date('ymd') . '-' . strtoupper(Str::random(5));
             }
 
+            // 4. Tạo Header Phiếu
             $purchaseOrder = PurchaseOrder::create([
                 'code'         => $poCode,
                 'supplier_id'  => $request->supplier_id,
-                'user_id'      => Auth::id(),
-                'status'       => PurchaseOrder::STATUS_PENDING, // Mặc định là Chờ duyệt
+                // 'user_id'   => Auth::id(), // <-- Tạm ẩn dòng này vì bảng PurchaseOrder của bạn chưa có cột user_id
+                'status'       => PurchaseOrder::STATUS_PENDING,
                 'note'         => $request->note,
                 'expected_at'  => $request->expected_at,
-                'total_amount' => 0, // Sẽ update sau khi tính items
+                'total_amount' => 0, 
             ]);
 
             $grandTotal = 0;
 
-            // 4. Tạo chi tiết items
+            // 5. Tạo chi tiết items
             foreach ($request->items as $item) {
                 $quantity = (int) $item['quantity'];
                 $price    = (float) $item['import_price'];
@@ -155,20 +143,20 @@ class PurchaseOrderController extends Controller
                     'product_variant_id' => $item['variant_id'],
                     'quantity'           => $quantity,
                     'import_price'       => $price,
-                    'total'              => $total
+                    'subtotal'           => $total, // <-- ĐÃ SỬA: Dùng 'subtotal' thay vì 'total' cho đúng DB
                 ]);
 
                 $grandTotal += $total;
             }
 
-            // 5. Cập nhật tổng tiền phiếu
+            // Update tổng tiền
             $purchaseOrder->update(['total_amount' => $grandTotal]);
 
             DB::commit();
 
             return redirect()
                 ->route('admin.purchase_orders.show', $purchaseOrder->id)
-                ->with('success', 'Đã tạo phiếu nhập hàng thành công. Vui lòng kiểm tra và duyệt nhập kho.');
+                ->with('success', 'Đã tạo phiếu nhập hàng thành công.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -178,24 +166,21 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * CHI TIẾT PHIẾU NHẬP
+     * CHI TIẾT PHIẾU
      */
     public function show($id)
     {
         $po = PurchaseOrder::with([
-            'items.variant.product', // Load sâu để lấy tên và ảnh sản phẩm
-            'supplier', 
-            'creator'
+            'items.variant.product', 
+            'supplier'
         ])->findOrFail($id);
 
         return view('admin.inventory.purchase_orders.show', compact('po'));
     }
 
     /**
-     * CẬP NHẬT TRẠNG THÁI (DUYỆT ĐƠN / HỦY ĐƠN)
-     * * Logic quan trọng:
-     * - Nếu Duyệt (Completed): Cộng tồn kho, cập nhật giá vốn, ghi log.
-     * - Nếu Hủy (Cancelled): Chỉ đổi trạng thái, không tác động kho.
+     * CẬP NHẬT TRẠNG THÁI (DUYỆT / HỦY)
+     * Đây là hàm quan trọng nhất để fix lỗi InventoryLog
      */
     public function updateStatus(Request $request, $id)
     {
@@ -208,52 +193,56 @@ class PurchaseOrderController extends Controller
 
         $po = PurchaseOrder::with('items')->findOrFail($id);
 
-        // Chặn nếu phiếu không phải đang ở trạng thái Pending
         if ($po->status !== PurchaseOrder::STATUS_PENDING) {
-            return back()->with('error', 'Phiếu này đã được xử lý trước đó, không thể thay đổi.');
+            return back()->with('error', 'Phiếu này đã được xử lý rồi.');
         }
 
-        // ================= TRƯỜNG HỢP: DUYỆT NHẬP KHO ================= //
+        // ================= DUYỆT ĐƠN (NHẬP KHO) ================= //
         if ($request->status === PurchaseOrder::STATUS_COMPLETED) {
             try {
                 DB::beginTransaction();
 
                 foreach ($po->items as $item) {
-                    // Lock dòng dữ liệu để tránh Race Condition (nhiều người cùng nhập 1 lúc)
+                    // Lock dữ liệu
                     $variant = ProductVariant::lockForUpdate()->find($item->product_variant_id);
 
                     if (!$variant) {
-                        throw new \Exception("Sản phẩm (ID: {$item->product_variant_id}) không còn tồn tại trong hệ thống.");
+                        throw new \Exception("Sản phẩm ID {$item->product_variant_id} không tồn tại.");
                     }
 
-                    // 1. Tính toán tồn kho mới
-                    $oldStock = $variant->stock_quantity;
-                    $newStock = $oldStock + $item->quantity;
+                    // 1. Tính toán
+                    $oldStock     = $variant->stock_quantity;
+                    $changeAmount = $item->quantity;
+                    $newStock     = $oldStock + $changeAmount;
 
-                    // 2. Cập nhật Variant (Tồn kho + Giá nhập mới nhất)
+                    // 2. Cập nhật Variant
                     $variant->update([
                         'stock_quantity' => $newStock,
-                        'original_price' => $item->import_price // Cập nhật giá vốn theo lần nhập mới nhất
+                        'original_price' => $item->import_price 
                     ]);
 
-                    // 3. Ghi Log Kho (Inventory History)
+                    // 3. Ghi Log Kho (ĐÃ SỬA ĐÚNG STRUCUTRE BẢNG LOG CỦA BẠN)
                     InventoryLog::create([
                         'product_variant_id' => $variant->id,
-                        'user_id'            => Auth::id(),
-                        'type'               => 'import',             // Loại giao dịch
-                        'quantity'           => $item->quantity,      // Số lượng biến động
-                        'current_stock'      => $newStock,            // Tồn sau khi đổi
-                        'reference_type'     => 'purchase_order',     // Tham chiếu đến bảng PO
-                        'reference_id'       => $po->id,              // ID phiếu nhập
+                        'user_id'            => Auth::id() ?? 1, // Lấy ID admin hoặc mặc định 1
+                        
+                        // --- CÁC CỘT QUAN TRỌNG ĐÃ FIX ---
+                        'old_quantity'       => $oldStock,      // Tồn đầu
+                        'change_amount'      => $changeAmount,  // Số thay đổi (Tránh lỗi 1364)
+                        'new_quantity'       => $newStock,      // Tồn cuối
+                        // ---------------------------------
+                        
+                        'type'               => InventoryLog::TYPE_IMPORT, // Hoặc 'import'
+                        'reference_type'     => 'purchase_order',
+                        'reference_id'       => $po->id,
                         'note'               => "Nhập kho từ đơn: {$po->code}",
                     ]);
                 }
 
-                // Cập nhật trạng thái phiếu
                 $po->update(['status' => PurchaseOrder::STATUS_COMPLETED]);
 
                 DB::commit();
-                return back()->with('success', 'Đã duyệt đơn và cập nhật kho hàng thành công!');
+                return back()->with('success', 'Đã duyệt đơn và nhập kho thành công!');
 
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -262,7 +251,7 @@ class PurchaseOrderController extends Controller
             }
         }
 
-        // ================= TRƯỜNG HỢP: HỦY PHIẾU ================= //
+        // ================= HỦY ĐƠN ================= //
         if ($request->status === PurchaseOrder::STATUS_CANCELLED) {
             $po->update(['status' => PurchaseOrder::STATUS_CANCELLED]);
             return back()->with('success', 'Đã hủy phiếu nhập hàng.');

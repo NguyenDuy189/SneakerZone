@@ -98,4 +98,19 @@ class Product extends Model
     
     // Đếm số lượng biến thể (Để hiển thị "Available in 5 sizes" ngoài view)
     // Hoặc có thể dùng withCount('variants') trong controller
+
+    /**
+     * Định nghĩa quan hệ với bảng product_images
+     */
+    public function images()
+    {
+        // Quan hệ 1-nhiều: Một sản phẩm có nhiều ảnh phụ
+        return $this->hasMany(ProductImage::class, 'product_id');
+    }
+
+    // Tạo thuộc tính ảo: $product->stock_quantity
+    public function getStockQuantityAttribute() {
+        return $this->variants->sum('stock_quantity');
+    }
+
 }

@@ -104,6 +104,7 @@
                         Sale
                         <span class="absolute -top-3 -right-3 text-[9px] bg-rose-600 text-white px-1 rounded animate-bounce">Hot</span>
                     </a>
+                    <a href="{{ route('client.vouchers.index')}}" class="text-sm font-bold text-slate-600 hover:text-indigo-600 uppercase tracking-wide transition-colors">Mã giảm giá</a>
                 </nav>
 
                 {{-- ICONS & ACTIONS --}}
@@ -142,17 +143,17 @@
                                     <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm text-indigo-600 font-bold hover:bg-indigo-50">Vào trang quản trị</a>
                                 @endif
                                 
-                                {{-- Nút đăng xuất (Sửa lại thành client.logout cho đúng luồng) --}}
-                                <form method="POST" action="{{ route('client.logout') }}">
+                                {{-- Nút đăng xuất (Sửa lại thành logout cho đúng luồng) --}}
+                                <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <button type="submit" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">Đăng xuất</button>
                                 </form>
                             @else
-                                <a href="{{ route('client.login') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-bold">
+                                <a href="{{ route('login') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-bold">
                                     Đăng nhập
                                 </a>
 
-                                <a href="{{ route('client.register') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+                                <a href="{{ route('register') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
                                     Đăng ký
                                 </a>
                             @endauth
@@ -246,18 +247,18 @@
                                      <a href="{{ route('client.account.orders') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-3 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600">Đơn hàng</a>
                                      
                                      {{-- Sửa route logout mobile --}}
-                                     <form method="POST" action="{{ route('client.logout') }}" class="block">
+                                     <form method="POST" action="{{ route('logout') }}" class="block">
                                         @csrf
                                         <button type="submit" class="w-full text-sm font-medium text-rose-600 bg-white py-2 px-3 rounded border border-slate-200 hover:bg-rose-50">Đăng xuất</button>
                                      </form>
                                 </div>
                             @else
-                                <a href="{{ route('client.login') }}"
+                                <a href="{{ route('login') }}"
                                    class="block w-full py-3 bg-slate-900 text-white text-center rounded-xl font-bold mb-3">
                                    Đăng nhập
                                 </a>
 
-                                <a href="{{ route('client.register') }}"
+                                <a href="{{ route('register') }}"
                                    class="block w-full py-3 border border-slate-300 text-slate-700 text-center rounded-xl font-bold">
                                    Đăng ký
                                 </a>
@@ -352,5 +353,17 @@
         });
     </script>
     @stack('scripts')
+
+    {{-- Nhúng Component Toast vào đây --}}
+    @include('client.products.toast-arlert')
+
+    {{-- Khai báo hàm JS helper toàn cục (để gọi từ JS dễ hơn) --}}
+    <script>
+        window.showToast = function(message, type = 'success') {
+            window.dispatchEvent(new CustomEvent('show-toast', { 
+                detail: { message: message, type: type } 
+            }));
+        }
+    </script>
 </body>
 </html>

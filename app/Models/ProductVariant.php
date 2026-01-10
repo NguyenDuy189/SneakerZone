@@ -10,16 +10,20 @@ class ProductVariant extends Model
 {
     use HasFactory, SoftDeletes;
 
+    // File: app/Models/ProductVariant.php
+    // File: app/Models/ProductVariant.php
+    
     protected $fillable = [
         'product_id',
         'sku',
         'name',
-        'image_url',
+        'image_url',     // (Giữ lại nếu database của bạn dùng tên này)
         'original_price',
         'sale_price',
         'stock_quantity',
+        'weight',
+        'is_active'
     ];
-
     // ================================
     // RELATIONSHIPS
     // ================================

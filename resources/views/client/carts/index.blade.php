@@ -1,408 +1,379 @@
-@extends('client.layouts.app')
+@extends('client.layouts.app') 
 
 @section('title', 'Giỏ hàng của bạn')
 
 @section('content')
+<div class="container mx-auto px-4 md:px-6 my-8">
+    {{-- Header --}}
+    <div class="flex items-end gap-3 mb-6">
+        <h1 class="text-3xl font-display font-black text-slate-900">Giỏ Hàng</h1>
+        <span class="text-slate-500 font-medium mb-1">({{ $cart ? $cart->items->count() : 0 }} sản phẩm)</span>
+    </div>
 
-{{-- DATA ALPINEJS QUẢN LÝ GIỎ HÀNG --}}
-<div x-data="cartManager({
-        csrfToken: '{{ csrf_token() }}',
-        updateRoute: '{{ route('client.carts.update') }}',
-        removeRoute: '{{ route('client.carts.remove', ':id') }}',
-        applyRoute: '{{ route('client.carts.apply_discount') }}',
-        removeDiscountRoute: '{{ route('client.carts.remove_discount') }}',
+    @if($cart && $cart->items->count() > 0)
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {{-- Tính toán Subtotal ban đầu từ PHP --}}
-        subtotal: {{ $cart ? $cart->items->sum(fn($i) => ($i->variant->price ?: $i->variant->product->price_min) * $i->quantity) : 0 }},
-        
-        {{-- Lấy dữ liệu Discount từ DB Cart --}}
-        discount: {{ $cart->discount_amount ?? 0 }},
-        currentCode: '{{ $cart->discount_code ?? '' }}'
-    })" 
-    class="bg-[#F8F9FA] min-h-screen pb-24 font-sans"> {{-- Tăng padding bottom để không bị che bởi mobile nav --}}
-
-    <div class="container mx-auto px-4 max-w-6xl">
-        
-        <h1 class="text-2xl font-black uppercase tracking-tight mb-8 flex items-center gap-3 pt-6">
-            <i class="fa-solid fa-bag-shopping text-indigo-600"></i> Giỏ hàng của bạn
-        </h1>
-
-        @if(isset($cartItems) && $cartItems->count() > 0)
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {{-- CỘT TRÁI: DANH SÁCH SẢN PHẨM --}}
+        <div class="lg:col-span-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 
-                {{-- === DANH SÁCH SẢN PHẨM (8 cột) === --}}
-                <div class="lg:col-span-8 space-y-4">
-                    
-                    {{-- Header Table --}}
-                    <div class="hidden md:grid grid-cols-12 gap-4 text-xs font-bold text-slate-400 uppercase tracking-wider px-4">
-                        <div class="col-span-5">Sản phẩm</div>
-                        <div class="col-span-2 text-center">Đơn giá</div>
-                        <div class="col-span-2 text-center">Số lượng</div>
-                        <div class="col-span-3 text-right">Tạm tính</div>
-                    </div>
+                {{-- Chọn tất cả --}}
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                    <input type="checkbox" id="selectAll" 
+                        class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        {{ $cart->items->count() == $totals['count_selected'] ? 'checked' : '' }}>
+                    <label for="selectAll" class="font-bold text-slate-700 cursor-pointer select-none">
+                        Chọn tất cả ({{ $cart->items->count() }} sản phẩm)
+                    </label>
+                </div>
 
-                    {{-- Loop Items --}}
-                    @foreach($cartItems as $item)
+                {{-- List Items --}}
+                <div class="divide-y divide-slate-100">
+                    @foreach($cart->items as $item)
                         @php
-                            $product = $item->variant->product;
-                            $price = $item->variant->price ?: $product->price_min;
+                            // Logic lấy giá ưu tiên: Sale Price -> Price
+                            $variant = $item->variant;
+                            $product = $variant->product;
+                            $price = $variant->sale_price > 0 
+                                ? $variant->sale_price 
+                                : ($variant->price ?: ($product->sale_price ?: $product->price));
+                            
+                            $maxStock = $variant->quantity;
+                            $image = $variant->image ?? $product->img_thumb ?? 'images/no-image.jpg';
                         @endphp
 
-                        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 relative group transition-all hover:shadow-md"
-                            id="cart-item-{{ $item->id }}">
-                            
-                            {{-- Loading Overlay --}}
-                            <div class="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[1px]" 
-                                x-show="isLoading === {{ $item->id }}" x-transition style="display: none;">
-                                <i class="fa-solid fa-circle-notch fa-spin text-indigo-600 text-xl"></i>
+                        <div class="p-4 md:p-6 flex gap-4 md:gap-6 group transition-colors hover:bg-slate-50/30 cart-item-row" id="item-row-{{ $item->id }}">
+                            {{-- Checkbox --}}
+                            <div class="flex items-center">
+                                <input type="checkbox" class="item-checkbox w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    data-id="{{ $item->id }}" 
+                                    {{ $item->is_selected ? 'checked' : '' }}>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                                
-                                {{-- 1. Info Sản phẩm --}}
-                                <div class="md:col-span-5 flex gap-4">
-                                    {{-- Ảnh --}}
-                                    <div class="w-20 h-20 rounded-lg bg-slate-50 overflow-hidden border border-slate-200 flex-shrink-0">
-                                        <img src="{{ $product->image ? asset('storage/'.$product->image) : asset('img/no-image.png') }}" 
-                                             class="w-full h-full object-cover mix-blend-multiply">
-                                    </div>
+                            {{-- Image --}}
+                            <div class="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-xl border border-slate-100 overflow-hidden bg-white">
+                                <img src="{{ asset($image) }}" 
+                                     alt="{{ $product->name }}" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            </div>
+
+                            {{-- Info --}}
+                            <div class="flex-grow flex flex-col justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-900 line-clamp-2 hover:text-indigo-600 transition-colors">
+                                        <a href="#">{{ $product->name }}</a>
+                                    </h3>
                                     
-                                    {{-- Tên & Biến thể --}}
-                                    <div class="flex flex-col justify-center min-w-0">
-                                        <a href="{{ route('client.products.show', $product->slug ?? $product->id) }}" 
-                                           class="font-bold text-slate-900 hover:text-indigo-600 truncate transition-colors" title="{{ $product->name }}">
-                                            {{ $product->name }}
-                                        </a>
-                                        
-                                        <div class="flex flex-wrap gap-1 mt-1">
-                                            @foreach($item->variant->attributeValues as $val)
-                                                <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase whitespace-nowrap">
-                                                    {{ $val->attribute->name }}: {{ $val->value }}
-                                                </span>
-                                            @endforeach
-                                        </div>
-
-                                        <div class="md:hidden mt-2 text-sm font-bold text-slate-900">
-                                            {{ number_format($price) }}đ
-                                        </div>
+                                    <div class="flex flex-wrap gap-2 mt-1.5">
+                                        @if($variant->color)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                {{ $variant->color->name }}
+                                            </span>
+                                        @endif
+                                        @if($variant->size)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                Size: {{ $variant->size->name }}
+                                            </span>
+                                        @endif
                                     </div>
                                 </div>
 
-                                {{-- 2. Đơn giá (Desktop) --}}
-                                <div class="hidden md:block md:col-span-2 text-center text-sm font-medium text-slate-600">
-                                    {{ number_format($price) }}đ
-                                </div>
-
-                                {{-- 3. Bộ tăng giảm số lượng --}}
-                                <div class="md:col-span-2 flex justify-center">
-                                    <div class="flex items-center border border-slate-200 rounded-lg h-9 w-24">
-                                        <button @click="updateQty({{ $item->id }}, -1)" 
-                                                class="w-7 h-full flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-l-lg transition-colors">
-                                            <i class="fa-solid fa-minus text-[10px]"></i>
-                                        </button>
-                                        
-                                        <input type="number" 
-                                               id="qty-{{ $item->id }}" 
-                                               value="{{ $item->quantity }}" 
-                                               readonly
-                                               class="w-full h-full text-center text-xs font-bold text-slate-900 bg-transparent outline-none">
-                                        
-                                        <button @click="updateQty({{ $item->id }}, 1)" 
-                                                class="w-7 h-full flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-r-lg transition-colors">
-                                            <i class="fa-solid fa-plus text-[10px]"></i>
-                                        </button>
+                                <div class="flex items-end justify-between mt-2">
+                                    <div class="font-display font-bold text-rose-500 text-lg">
+                                        {{ number_format($price) }}đ
                                     </div>
                                 </div>
+                            </div>
 
-                                {{-- 4. Thành tiền & Nút xóa --}}
-                                <div class="md:col-span-3 flex items-center justify-between md:justify-end gap-6 pl-2">
-                                    <span class="text-sm font-black text-indigo-600 truncate" id="item-subtotal-{{ $item->id }}">
-                                        {{ number_format($item->quantity * $price) }}đ
-                                    </span>
+                            {{-- Actions (Qty & Delete) --}}
+                            <div class="flex flex-col items-end justify-between gap-2">
+                                <button class="btn-remove-item text-slate-400 hover:text-rose-500 transition-colors p-1" data-id="{{ $item->id }}" title="Xóa">
+                                    <i class="fa-regular fa-trash-can text-lg"></i>
+                                </button>
+
+                                <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white h-9">
+                                    <button class="btn-update-qty w-8 h-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 transition-colors"
+                                        data-id="{{ $item->id }}" data-type="minus">
+                                        <i class="fa-solid fa-minus text-xs"></i>
+                                    </button>
                                     
-                                    <button @click="removeItem({{ $item->id }})" 
-                                            class="text-slate-300 hover:text-rose-500 transition-colors p-2 flex-shrink-0"
-                                            title="Xóa sản phẩm">
-                                        <i class="fa-solid fa-trash-can"></i>
+                                    <input type="text" class="quantity-input w-10 h-full text-center text-sm font-semibold text-slate-900 border-x border-slate-200 focus:outline-none"
+                                        value="{{ $item->quantity }}" readonly 
+                                        id="qty-{{ $item->id }}" data-max="{{ $maxStock }}">
+                                    
+                                    <button class="btn-update-qty w-8 h-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        data-id="{{ $item->id }}" data-type="plus"
+                                        {{ $item->quantity >= $maxStock ? 'disabled' : '' }}>
+                                        <i class="fa-solid fa-plus text-xs"></i>
                                     </button>
                                 </div>
+                                <div class="text-rose-500 text-[10px] font-medium hidden error-msg-{{ $item->id }}"></div>
                             </div>
                         </div>
                     @endforeach
-
-                    {{-- Nút Quay lại Shop --}}
-                    <div class="mt-6">
-                        <a href="{{ route('client.products.index') }}" class="text-xs font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1">
-                            <i class="fa-solid fa-arrow-left"></i> Tiếp tục mua sắm
-                        </a>
-                    </div>
-                </div>
-
-                {{-- === SUMMARY BOX (Cột phải - 4 cột) === --}}
-                <div class="lg:col-span-4">
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-24">
-                        <h3 class="text-lg font-black text-slate-900 uppercase mb-6">Tổng đơn hàng</h3>
-
-                        {{-- FORM NHẬP MÃ --}}
-                        <div class="mb-6">
-                            <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Mã giảm giá</label>
-                            
-                            {{-- Input --}}
-                            <div x-show="!currentCode" class="flex gap-2 transition-all">
-                                <input type="text" x-model="inputCode" 
-                                    @keydown.enter.prevent="applyDiscount()"
-                                    placeholder="Nhập mã giảm giá" 
-                                    class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm font-bold uppercase focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-                                <button @click="applyDiscount()" 
-                                        class="bg-slate-900 text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide hover:bg-indigo-600 transition-colors shadow-lg shadow-slate-900/10">
-                                    Áp dụng
-                                </button>
-                            </div>
-
-                            {{-- Hiển thị mã đã dùng --}}
-                            <div x-show="currentCode" style="display: none;" 
-                                class="flex justify-between items-center bg-emerald-50 border border-emerald-100 p-3 rounded-lg mt-2 animate-pulse-once">
-                                <div class="flex items-center gap-2">
-                                    <i class="fa-solid fa-ticket text-emerald-600"></i>
-                                    <span class="font-bold text-emerald-700 text-sm" x-text="currentCode"></span>
-                                </div>
-                                <button @click="removeDiscount()" class="text-xs font-bold text-rose-500 hover:text-rose-700">
-                                    <i class="fa-solid fa-xmark mr-1"></i>Gỡ
-                                </button>
-                            </div>
-
-                            {{-- Thông báo lỗi/thành công --}}
-                            <p x-show="msgText" x-text="msgText" class="text-[11px] font-bold mt-2"
-                            :class="msgType === 'success' ? 'text-emerald-600' : 'text-rose-500'"></p>
-                        </div>
-
-                        <hr class="border-dashed border-slate-200 my-6">
-
-                        {{-- TÍNH TIỀN --}}
-                        <div class="space-y-3 mb-6">
-                            <div class="flex justify-between text-sm text-slate-600">
-                                <span>Tạm tính</span>
-                                <span class="font-bold" x-text="formatMoney(subtotal)"></span>
-                            </div>
-                            
-                            <div class="flex justify-between text-sm text-emerald-600" x-show="discount > 0">
-                                <span>Giảm giá</span>
-                                <span class="font-bold" x-text="'-' + formatMoney(discount)"></span>
-                            </div>
-
-                            <div class="flex justify-between text-base font-black text-slate-900 pt-3 border-t border-slate-100">
-                                <span>Tổng cộng</span>
-                                <span class="text-indigo-600 text-xl" x-text="formatMoney(subtotal - discount)"></span>
-                            </div>
-                        </div>
-
-                        {{-- [QUAN TRỌNG] NÚT THANH TOÁN CHO PC --}}
-                        {{-- Mình đã thêm style cứng background để chắc chắn hiện màu --}}
-                        <a href="{{ route('client.checkouts.index') }}" 
-                           class="hidden lg:flex w-full py-4 rounded-xl font-bold text-white text-lg uppercase shadow-lg items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95"
-                           style="background-color: #4F46E5 !important; display: flex !important;">
-                            <span>Tiến hành thanh toán</span>
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </a>
-
-                        <div class="mt-6 flex items-center justify-center gap-2 text-slate-400 text-xl opacity-70">
-                            <i class="fa-brands fa-cc-visa"></i>
-                            <i class="fa-brands fa-cc-mastercard"></i>
-                            <i class="fa-brands fa-cc-paypal"></i>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-            
-            {{-- THANH THANH TOÁN DÍNH ĐÁY (FIXED FOOTER CHO MOBILE) --}}
-            {{-- Đã đổi từ <button submit> thành <a> link để hoạt động đúng --}}
-            <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 lg:hidden">
-                <div class="container mx-auto flex justify-between items-center gap-4">
-                    <div class="text-slate-900">
-                        <span class="block text-xs text-slate-500">Tổng cộng:</span>
-                        <span class="block font-black text-indigo-600 text-xl" x-text="formatMoney(subtotal - discount)"></span>
-                    </div>
-                    <a href="{{ route('client.checkouts.index') }}" 
-                       class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg uppercase text-sm shadow-md active:scale-95 transition-transform"
-                       style="background-color: #4F46E5;">
-                        Đặt hàng ngay
-                    </a>
                 </div>
             </div>
 
-        @else
-            {{-- EMPTY STATE (Khi giỏ hàng trống) --}}
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center my-10">
-                <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
-                    <i class="fa-solid fa-basket-shopping text-4xl"></i>
+            <a href="/" class="inline-flex items-center gap-2 mt-6 text-slate-600 font-bold hover:text-indigo-600 transition-colors group">
+                <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+                Tiếp tục mua sắm
+            </a>
+        </div>
+
+        {{-- CỘT PHẢI: TỔNG KẾT --}}
+        <div class="lg:col-span-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-28">
+                <h2 class="font-display font-bold text-lg text-slate-900 mb-4">Tổng đơn hàng</h2>
+
+                {{-- --- START: KHỐI MÃ GIẢM GIÁ --- --}}
+                <div class="mb-6">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mã giảm giá</label>
+                    
+                    {{-- State 1: Đã áp dụng --}}
+                    <div id="couponAppliedBlock" class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-lg {{ $cart->discount_code ? 'flex' : 'hidden' }}">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-tag text-emerald-600"></i>
+                            <span class="font-bold text-emerald-700 uppercase" id="appliedCodeDisplay">{{ $cart->discount_code }}</span>
+                        </div>
+                        <button type="button" id="btnRemoveCoupon" class="text-slate-400 hover:text-rose-500 transition-colors p-1" title="Gỡ bỏ mã">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    {{-- State 2: Input nhập mã --}}
+                    <div id="couponInputBlock" class="flex gap-2 {{ $cart->discount_code ? 'hidden' : 'flex' }}">
+                        <input type="text" id="couponCode" 
+                            class="flex-1 bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 uppercase placeholder:normal-case transition-all"
+                            placeholder="Nhập mã code">
+                        <button type="button" id="btnApplyCoupon"
+                            class="bg-slate-900 text-white font-bold rounded-lg text-sm px-4 py-2 hover:bg-slate-800 transition-colors whitespace-nowrap">
+                            Áp dụng
+                        </button>
+                    </div>
+
+                    <div id="couponMessage" class="text-xs mt-2 font-medium min-h-[16px]"></div>
                 </div>
-                <h2 class="text-xl font-bold text-slate-900 mb-2">Giỏ hàng của bạn đang trống</h2>
-                <p class="text-slate-500 mb-8 max-w-md mx-auto">Có vẻ như bạn chưa chọn được món đồ nào ưng ý. Hãy dạo một vòng cửa hàng để tìm kiếm đôi giày yêu thích nhé!</p>
-                <a href="{{ route('client.products.index') }}" class="inline-flex items-center justify-center px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-indigo-600 transition-colors uppercase text-xs tracking-widest">
-                    Mua sắm ngay
+                {{-- --- END: KHỐI MÃ GIẢM GIÁ --- --}}
+
+                <div class="border-t border-slate-100 my-4"></div>
+
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between text-slate-600">
+                        <span>Tạm tính</span>
+                        <span class="font-bold text-slate-900" id="cartSubtotal">{{ $totals['subtotal_formatted'] }}</span>
+                    </div>
+                    <div class="flex justify-between text-emerald-600">
+                        <span>Giảm giá</span>
+                        <span class="font-bold" id="cartDiscount">-{{ $totals['discount_formatted'] }}</span>
+                    </div>
+                </div>
+
+                <div class="border-t border-dashed border-slate-200 my-4"></div>
+
+                <div class="flex justify-between items-end mb-6">
+                    <span class="font-bold text-slate-900 text-lg">Tổng cộng</span>
+                    <div class="text-right">
+                        <span class="block font-display font-black text-2xl text-indigo-600" id="cartTotal">{{ $totals['total_formatted'] }}</span>
+                        <span class="text-xs text-slate-400 font-medium">(Đã bao gồm VAT)</span>
+                    </div>
+                </div>
+
+                <a href="{{ route('client.checkouts.index') }}" id="btnCheckout"
+                   class="block w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-center rounded-xl font-bold uppercase tracking-wide transition-all shadow-lg shadow-indigo-200 {{ $totals['count_selected'] == 0 ? 'opacity-50 pointer-events-none grayscale' : '' }}">
+                    Thanh toán ngay
                 </a>
             </div>
-        @endif
-
+        </div>
     </div>
+
+    @else
+    {{-- GIỎ HÀNG TRỐNG --}}
+    <div class="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+        <div class="w-40 h-40 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+            <i class="fa-solid fa-cart-arrow-down text-6xl text-slate-300"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-2">Giỏ hàng đang trống</h2>
+        <p class="text-slate-500 mb-8 max-w-md text-center">Chưa có sản phẩm nào trong giỏ hàng của bạn. Hãy dạo một vòng và chọn cho mình sản phẩm ưng ý nhé!</p>
+        <a href="{{ route('client.products.index') }}" class="px-8 py-3 bg-slate-900 text-white rounded-full font-bold hover:bg-indigo-600 transition-colors shadow-lg">
+            Khám phá sản phẩm
+        </a>
+    </div>
+    @endif
 </div>
 
-{{-- SCRIPT XỬ LÝ CART --}}
+{{-- JAVASCRIPT --}}
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+
+@push('scripts')
 <script>
-    function cartManager(config) {
-        return {
-            isLoading: null, 
-            subtotal: config.subtotal, 
-            discount: config.discount,
-            currentCode: config.currentCode,
+    $(document).ready(function() {
+        // Setup CSRF Token cho tất cả Ajax request
+        $.ajaxSetup({
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
+        });
+
+        // --- HELPER FUNCTIONS ---
+        
+        // Cập nhật text giá trị tiền tệ
+        function updateCartUI(data) {
+            $('#cartSubtotal').text(data.subtotal_formatted);
+            $('#cartDiscount').text('-' + data.discount_formatted);
+            $('#cartTotal').text(data.total_formatted);
             
-            inputCode: '', 
-            msgText: '',
-            msgType: '',
-
-            formatMoney(amount) {
-                return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-            },
-
-            // --- 1. CẬP NHẬT SỐ LƯỢNG ---
-            updateQty(itemId, change) {
-                let inputEl = document.getElementById('qty-' + itemId);
-                if(!inputEl) return;
-
-                let currentQty = parseInt(inputEl.value);
-                let newQty = currentQty + change;
-
-                if (newQty < 1) return;
-
-                this.isLoading = itemId;
-
-                fetch(config.updateRoute, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': config.csrfToken
-                    },
-                    body: JSON.stringify({
-                        id: itemId,
-                        quantity: newQty
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    this.isLoading = null;
-
-                    if (data.status === 'success') {
-                        // Cập nhật input
-                        inputEl.value = newQty;
-
-                        // Cập nhật giá dòng đó
-                        let itemSubtotalEl = document.getElementById('item-subtotal-' + itemId);
-                        if(itemSubtotalEl) {
-                            itemSubtotalEl.innerText = this.formatMoney(data.item_subtotal);
-                        }
-
-                        // Cập nhật Tổng tiền (Ưu tiên dùng cart_subtotal từ server trả về)
-                        if (data.cart_subtotal !== undefined) {
-                            this.subtotal = data.cart_subtotal;
-                            
-                            // Cập nhật lại discount nếu server tính lại
-                            if(data.discount_amount !== undefined) {
-                                this.discount = data.discount_amount;
-                            }
-                        } 
-                        // Fallback nếu controller chưa sửa (chỉ trả về cart_total)
-                        else if (data.cart_total !== undefined) {
-                            this.subtotal = data.cart_total + this.discount;
-                        }
-                    } else {
-                        alert(data.message);
-                        inputEl.value = currentQty;
-                    }
-                })
-                .catch(err => {
-                    this.isLoading = null;
-                    console.error(err);
-                });
-            },
-
-            // --- 2. XÓA SẢN PHẨM ---
-            removeItem(itemId) {
-                if(!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
-                this.isLoading = itemId;
-
-                let url = config.removeRoute.replace(':id', itemId);
-
-                fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'X-CSRF-TOKEN': config.csrfToken,
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        let itemRow = document.getElementById('cart-item-' + itemId);
-                        if(itemRow) itemRow.remove();
-
-                        // Cập nhật lại tổng tiền
-                         if (data.cart_subtotal !== undefined) {
-                            this.subtotal = data.cart_subtotal;
-                            if(data.discount_amount !== undefined) this.discount = data.discount_amount;
-                        } else if (data.cart_total !== undefined) {
-                            this.subtotal = data.cart_total + this.discount;
-                        }
-                        
-                        // Reload nếu giỏ trống
-                        if (data.item_count === 0) { 
-                            window.location.reload();
-                        }
-                    }
-                });
-            },
-
-            // --- 3. VOUCHER ---
-            applyDiscount() {
-                if (!this.inputCode) return;
-
-                fetch(config.applyRoute, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': config.csrfToken
-                    },
-                    body: JSON.stringify({ code: this.inputCode })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    this.msgText = data.message;
-                    this.msgType = data.status;
-
-                    if (data.status === 'success') {
-                        this.discount = data.discount;
-                        this.currentCode = data.discount_code;
-                        this.inputCode = ''; 
-                    }
-                });
-            },
-
-            removeDiscount() {
-                fetch(config.removeDiscountRoute, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': config.csrfToken
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    this.discount = 0;
-                    this.currentCode = '';
-                    this.msgText = '';
-                });
+            // Disable nút thanh toán nếu không chọn sản phẩm nào
+            if(data.count_selected > 0) {
+                $('#btnCheckout').removeClass('opacity-50 pointer-events-none grayscale');
+            } else {
+                $('#btnCheckout').addClass('opacity-50 pointer-events-none grayscale');
             }
         }
-    }
+
+        // Chuyển đổi giao diện Coupon (Nhập <-> Đã áp dụng)
+        function toggleCouponUI(isApplied, code = '') {
+            if (isApplied) {
+                $('#couponInputBlock').addClass('hidden').removeClass('flex');
+                $('#couponAppliedBlock').removeClass('hidden').addClass('flex');
+                $('#appliedCodeDisplay').text(code);
+                $('#couponCode').val(''); // Clear input
+            } else {
+                $('#couponAppliedBlock').addClass('hidden').removeClass('flex');
+                $('#couponInputBlock').removeClass('hidden').addClass('flex');
+                $('#couponCode').val('');
+                $('#couponMessage').text('');
+            }
+        }
+
+        // --- EVENT HANDLERS ---
+
+        // 1. CHỌN SẢN PHẨM LẺ
+        $('.item-checkbox').on('change', function() {
+            let itemId = $(this).data('id');
+            let isSelected = $(this).is(':checked');
+            let allChecked = $('.item-checkbox').length === $('.item-checkbox:checked').length;
+            $('#selectAll').prop('checked', allChecked);
+
+            $.post("{{ route('client.carts.select') }}", { item_id: itemId, selected: isSelected, is_all: 0 }, function(res) {
+                if(res.status === 'success') updateCartUI(res.data);
+            });
+        });
+
+        // 2. CHỌN TẤT CẢ
+        $('#selectAll').on('change', function() {
+            let isSelected = $(this).is(':checked');
+            $('.item-checkbox').prop('checked', isSelected);
+            $.post("{{ route('client.carts.select') }}", { selected: isSelected, is_all: 1 }, function(res) {
+                if(res.status === 'success') updateCartUI(res.data);
+            });
+        });
+
+        // 3. CẬP NHẬT SỐ LƯỢNG (+/-)
+        $('.btn-update-qty').on('click', function() {
+            let btn = $(this);
+            let type = btn.data('type');
+            let itemId = btn.data('id');
+            let input = $('#qty-' + itemId);
+            let currentQty = parseInt(input.val());
+            let maxStock = parseInt(input.data('max'));
+            let newQty = type === 'plus' ? currentQty + 1 : currentQty - 1;
+
+            if (newQty < 1) return;
+            
+            btn.prop('disabled', true);
+            $('.error-msg-' + itemId).addClass('hidden').text('');
+
+            $.post("{{ route('client.carts.update') }}", { item_id: itemId, quantity: newQty }, function(res) {
+                btn.prop('disabled', false);
+                if (res.status === 'success') {
+                    input.val(newQty);
+                    updateCartUI(res.data);
+                    
+                    // Disable nút plus nếu đạt max stock
+                    if(newQty >= maxStock) btn.siblings('[data-type="plus"]').prop('disabled', true);
+                    else btn.siblings('[data-type="plus"]').prop('disabled', false);
+                } else {
+                    $('.error-msg-' + itemId).removeClass('hidden').text(res.message);
+                }
+            });
+        });
+
+        // 4. XÓA SẢN PHẨM
+        $('.btn-remove-item').on('click', function() {
+            if(!confirm('Xóa sản phẩm này khỏi giỏ?')) return;
+            let btn = $(this);
+            let itemId = btn.data('id');
+            
+            $.post("{{ route('client.carts.remove') }}", { item_id: itemId }, function(res) {
+                if (res.status === 'success') {
+                    $('#item-row-' + itemId).fadeOut(300, function() { $(this).remove(); });
+                    updateCartUI(res.data);
+                    // Reload nếu hết sạch sản phẩm
+                    if ($('.cart-item-row').length <= 1) location.reload();
+                }
+            });
+        });
+
+        // 5. ÁP DỤNG MÃ GIẢM GIÁ
+        function applyCoupon() {
+            let input = $('#couponCode');
+            let code = input.val().trim();
+            let btn = $('#btnApplyCoupon');
+            let msgBox = $('#couponMessage');
+
+            // Reset UI lỗi
+            input.removeClass('border-rose-500 ring-rose-500 text-rose-500').addClass('border-slate-200');
+
+            if(!code) {
+                msgBox.removeClass('text-emerald-600').addClass('text-rose-500').text('Vui lòng nhập mã!');
+                input.addClass('border-rose-500 ring-rose-500 text-rose-500').removeClass('border-slate-200').focus();
+                return;
+            }
+
+            let originalText = btn.text();
+            btn.html('<i class="fa-solid fa-circle-notch fa-spin"></i>').prop('disabled', true);
+            msgBox.text('');
+
+            $.post("{{ route('client.carts.apply_discount') }}", { code: code }, function(res) {
+                btn.text(originalText).prop('disabled', false);
+                
+                if (res.status === 'success') {
+                    msgBox.removeClass('text-rose-500').addClass('text-emerald-600').text(res.message);
+                    updateCartUI(res.data);
+                    toggleCouponUI(true, code); // Switch giao diện
+                } else {
+                    msgBox.removeClass('text-emerald-600').addClass('text-rose-500').text(res.message);
+                    input.addClass('border-rose-500 ring-rose-500 text-rose-500').removeClass('border-slate-200');
+                    if(res.data) updateCartUI(res.data);
+                }
+            }).fail(function() {
+                btn.text(originalText).prop('disabled', false);
+                msgBox.addClass('text-rose-500').text('Lỗi kết nối server.');
+            });
+        }
+
+        // Bắt sự kiện Click Button
+        $('#btnApplyCoupon').on('click', applyCoupon);
+        
+        // Bắt sự kiện Enter Input
+        $('#couponCode').on('keypress', function(e) {
+            if(e.which == 13) applyCoupon();
+        });
+
+        // 6. GỠ BỎ MÃ GIẢM GIÁ
+        $(document).on('click', '#btnRemoveCoupon', function() {
+            if(!confirm('Bạn muốn gỡ mã giảm giá này?')) return;
+            
+            let btn = $(this);
+            let icon = btn.find('i');
+            icon.attr('class', 'fa-solid fa-circle-notch fa-spin'); // Loading icon
+
+            // Gửi code rỗng để Controller hiểu là gỡ mã
+            $.post("{{ route('client.carts.apply_discount') }}", { code: '' }, function(res) {
+                updateCartUI(res.data);
+                toggleCouponUI(false); 
+                icon.attr('class', 'fa-solid fa-xmark');
+            });
+        });
+    });
 </script>
+@endpush
 @endsection

@@ -7,7 +7,7 @@
     <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <h1 class="text-2xl font-black text-center mb-6">Đăng nhập</h1>
 
-        <form method="POST" action="{{ route('client.login.submit') }}" class="space-y-5">
+        <form method="POST" action="{{ route('login.submit') }}" class="space-y-5">
             @csrf
 
             <div>
@@ -31,7 +31,7 @@
 
         <p class="text-center text-sm text-slate-500 mt-6">
             Chưa có tài khoản?
-            <a href="{{ route('client.register') }}" class="text-indigo-600 font-bold">Đăng ký</a>
+            <a href="{{ route('register') }}" class="text-indigo-600 font-bold">Đăng ký</a>
         </p>
     </div>
 </div>

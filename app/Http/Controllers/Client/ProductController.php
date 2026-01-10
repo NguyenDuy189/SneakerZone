@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Brand;
+use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
@@ -118,37 +119,47 @@ class ProductController extends Controller
      * CHI TIẾT SẢN PHẨM (DETAIL PAGE)
      * Hiển thị thông tin chi tiết, biến thể, ảnh và đánh giá.
      */
-    public function show($slug)
+public function show($slug)
     {
         try {
-            // 1. Load sản phẩm
+            // 1. Load sản phẩm + Tính toán số sao (Avg) + Đếm số đánh giá (Count)
             $product = Product::with([
                 'category', 
                 'brand', 
                 'gallery_images',
                 'variants.attributeValues.attribute' 
             ])
+            // FIX: Tính trung bình sao và số lượng đánh giá đã duyệt
+            ->withAvg(['reviews' => function($query) {
+                $query->where('is_approved', true);
+            }], 'rating')
+            ->withCount(['reviews' => function($query) {
+                $query->where('is_approved', true);
+            }])
             ->where('slug', $slug)
-            ->where('status', 'published') // Lưu ý: Cột status này là của bảng Product (vẫn giữ nguyên)
+            ->where('status', 'published')
             ->firstOrFail();
 
-            // 2. Lấy Review (SỬA LẠI ĐOẠN NÀY)
+            // 2. Lấy danh sách Review để hiển thị (Phân trang 5 review/trang)
             $reviews = $product->reviews()
                 ->with('user')
-                ->where('is_approved', true) // <--- SỬA: Dùng cột 'is_approved' thay vì 'status'
+                ->where('is_approved', true)
                 ->latest()
                 ->paginate(5);
 
-            // 3. Tính điểm trung bình (CŨNG PHẢI SỬA)
-            $avgRating = $product->reviews()
-                ->where('is_approved', true) // <--- SỬA: Dùng cột 'is_approved'
-                ->avg('rating') ?? 0;
+            // 3. (MỚI) Kiểm tra xem user hiện tại đã đánh giá chưa để hiển thị ra form
+            $userReview = null;
+            if (Auth::check()) {
+                $userReview = $product->reviews()
+                    ->where('user_id', Auth::id())
+                    ->first();
+            }
 
-            // 4. Xử lý thuộc tính (Logic cũ giữ nguyên)
+            // 4. Xử lý thuộc tính (Logic nhóm thuộc tính cũ của bạn)
             $groupedAttributes = collect();
             if ($product->variants) {
                 foreach ($product->variants as $variant) {
-                    if ($variant->stock_quantity > 0) { 
+                    if ($variant->stock_quantity > 0 || $variant->price > 0) { 
                         foreach ($variant->attributeValues as $attrValue) {
                             $attrName = $attrValue->attribute->name;
                             if (!$groupedAttributes->has($attrName)) {
@@ -162,12 +173,12 @@ class ProductController extends Controller
                 }
             }
 
-            // 5. Map dữ liệu biến thể
+            // 5. Map biến thể cho JS
             $variantMap = $product->variants->mapWithKeys(function ($variant) use ($product) {
                 return [
                     $variant->id => [
                         'id' => $variant->id,
-                        'attributes' => $variant->attributeValues->pluck('id')->sort()->values()->all(),
+                        'attributes' => $variant->attributeValues->pluck('id')->map(fn($id) => (int)$id)->sort()->values()->all(),
                         'stock' => $variant->stock_quantity,
                         'price' => $variant->price ?? $product->price_regular,
                         'sku' => $variant->sku
@@ -186,15 +197,15 @@ class ProductController extends Controller
             return view('client.products.show', compact(
                 'product', 
                 'reviews', 
-                'avgRating', 
+                'userReview', // <--- Quan trọng: Biến này dùng để điền form cũ
                 'groupedAttributes', 
                 'variantMap', 
                 'relatedProducts'
             ));
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("Error: " . $e->getMessage());
-            return redirect()->route('client.products.index')->with('error', 'Có lỗi xảy ra.');
+            \Illuminate\Support\Facades\Log::error("Show Product Error: " . $e->getMessage());
+            return redirect()->route('client.products.index')->with('error', 'Không tìm thấy sản phẩm.');
         }
     }
 }

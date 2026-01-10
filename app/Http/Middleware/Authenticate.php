@@ -14,25 +14,25 @@ class Authenticate extends Middleware
      * @param  \Illuminate\Http\Request  $request
      * @return string|null
      */
+    // File: App\Http\Middleware\Authenticate.php
+
     protected function redirectTo($request)
     {
-
         if (! $request->expectsJson()) {
-            session()->flash('error', 'Bạn cần đăng nhập để sử dụng giỏ hàng.');
-            return route('login');
-        }
-        if (! $request->expectsJson()) {
-
-            // Nếu URL bắt đầu bằng /admin → redirect về admin login
+            
+            // 1. Kiểm tra nếu là đường dẫn Admin -> Về trang login Admin
             if ($request->is('admin') || $request->is('admin/*')) {
                 return route('admin.login');
             }
 
-            // Ngược lại, redirect về login client
-            return route('login'); // route login client, nếu có
+            // 2. Mặc định: Về trang login Client
+            // Chỉ flash session lỗi giỏ hàng nếu cần thiết (tùy logic của bạn)
+            // session()->flash('error', 'Bạn cần đăng nhập để tiếp tục.'); 
+            
+            return route('login'); 
         }
-
-        // Nếu request AJAX hoặc expects JSON → trả về 401 JSON
+        
+        // Trả về null để Laravel tự xử lý trả về JSON 401 nếu là API
         return null;
     }
 }

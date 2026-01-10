@@ -58,7 +58,7 @@
                                     <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
                                             :class="activeImage === '{{ asset('storage/'.$img->image_path) }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
                                             @click="activeImage = '{{ asset('storage/'.$img->image_path) }}'">
-                                        <img src="{{ asset('storage/'.$img->image_path) }}" class="w-full h-full object-cover mix-blend-multiply">
+                                            <img src="{{ asset('storage/'.$img->image_path) }}" class="w-full h-full object-cover mix-blend-multiply">
                                     </button>
                                 @endforeach
                             @endif
@@ -69,26 +69,49 @@
                 {{-- === CỘT PHẢI: INFO === --}}
                 <div class="lg:col-span-6 p-6 lg:p-10 flex flex-col justify-center">
                     
-                    {{-- Header --}}
+                    {{-- Header Information --}}
                     <div class="mb-6 pb-6 border-b border-dashed border-slate-200">
-                        <div class="flex justify-between items-start mb-2">
+                        
+                        <div class="flex items-center gap-3 mb-3">
                             <span class="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">
                                 {{ $product->category->name ?? 'Collection' }}
                             </span>
-                            <a href="#reviews" class="flex items-center gap-1 text-xs font-bold text-amber-500 hover:underline">
-                                <i class="fa-solid fa-star"></i> {{ number_format($product->reviews_avg_rating ?? 0, 1) }}
-                            </a>
+                            
+                            {{-- Rating Summary --}}
+                            <div class="flex items-center gap-1">
+                                @php 
+                                    $avgRating = $product->reviews_avg_rating ?? 0;
+                                    $countRating = $product->reviews_count ?? 0;
+                                @endphp
+
+                                @if($countRating > 0)
+                                    <div class="flex text-amber-400 text-xs">
+                                        @for($i = 1; $i <= 5; $i++)
+                                            <i class="{{ $i <= round($avgRating) ? 'fa-solid' : 'fa-regular' }} fa-star"></i>
+                                        @endfor
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-500 ml-1">
+                                        {{ number_format($avgRating, 1) }} ({{ $countRating }} đánh giá)
+                                    </span>
+                                @else
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                        Chưa có đánh giá
+                                    </span>
+                                @endif
+                            </div>
                         </div>
+
                         <h1 class="text-3xl font-black text-slate-900 leading-tight mb-2 uppercase tracking-tight">{{ $product->name }}</h1>
-                        <div class="text-2xl font-bold text-slate-900" x-text="formatMoney(currentPrice)"></div>
+                        
+                        <div class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                            <span x-text="formatMoney(currentPrice)"></span>
+                        </div>
                     </div>
 
                     {{-- Form Add To Cart --}}
-                    <form action="{{ route('client.carts.add') }}" method="POST" id="addToCartForm" class="space-y-6">
-                        @csrf
+                    <form id="addToCartForm" class="space-y-6" @submit.prevent="submitCart()">
                         
-                        {{-- FIX LỖI "variant id field is required": Đổi name về "variant_id" --}}
-                        <input type="hidden" name="variant_id" x-model="selectedVariantId">
+                        <input type="hidden" name="product_variant_id" x-model="selectedVariantId">
                         <input type="hidden" name="product_id" value="{{ $product->id }}">
 
                         {{-- Chọn Thuộc tính --}}
@@ -118,9 +141,6 @@
                             <div x-show="errorMsg" x-transition class="text-rose-600 text-[11px] font-bold flex items-center gap-1 mt-1">
                                 <i class="fa-solid fa-circle-exclamation"></i> <span x-text="errorMsg"></span>
                             </div>
-                        @else
-                            {{-- Tự động chọn variant đầu tiên nếu ko có thuộc tính --}}
-                            <input type="hidden" name="variant_id" value="{{ $product->variants->first()->id ?? '' }}">
                         @endif
 
                         {{-- Control Bar (Qty & Price) --}}
@@ -140,13 +160,16 @@
                         </div>
 
                         {{-- Stock Status --}}
-                        <div class="flex items-center justify-between text-xs font-bold pt-2">
-                             <div x-show="currentStock > 0" class="text-emerald-600 flex items-center gap-1">
+                        <div class="flex items-center justify-between text-xs font-bold pt-2 min-h-[20px]">
+                            <div x-show="currentStock > 0" class="text-emerald-600 flex items-center gap-1" x-cloak>
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> 
                                 Còn <span x-text="currentStock"></span> sản phẩm
                             </div>
-                            <div x-show="currentStock <= 0 && selectedVariantId" class="text-rose-500 flex items-center gap-1" style="display: none;">
+                            <div x-show="currentStock <= 0 && selectedVariantId !== null" class="text-rose-500 flex items-center gap-1" x-cloak>
                                 <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Hết hàng
+                            </div>
+                             <div x-show="currentStock <= 0 && selectedVariantId === null" class="text-slate-400 flex items-center gap-1" x-cloak>
+                                <i class="fa-solid fa-box-open"></i> Vui lòng chọn phân loại
                             </div>
                         </div>
 
@@ -189,8 +212,7 @@
 
         {{-- PHẦN 2: MÔ TẢ & REVIEW --}}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {{-- MÔ TẢ SẢN PHẨM --}}
+            {{-- MÔ TẢ --}}
             <div class="lg:col-span-2">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
                     <h3 class="text-lg font-black text-slate-900 uppercase mb-4 flex items-center gap-2">
@@ -202,65 +224,108 @@
                 </div>
             </div>
 
-            {{-- ĐÁNH GIÁ SẢN PHẨM --}}
+            {{-- REVIEWS (ĐÃ SỬA: HỖ TRỢ NHIỀU REVIEW) --}}
             <div class="lg:col-span-1" id="reviews">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-24">
-                    
+                    {{-- Thống kê tổng quan --}}
                     <div class="text-center mb-6 bg-slate-50 rounded-xl p-4">
-                        <div class="text-5xl font-black text-slate-900 mb-1">{{ number_format($product->reviews_avg_rating ?? $product->reviews->avg('rating') ?? 0, 1) }}</div>
+                        <div class="text-5xl font-black text-slate-900 mb-1">{{ number_format($product->reviews_avg_rating ?? 0, 1) }}</div>
                         <div class="flex justify-center text-amber-400 text-sm mb-2 gap-1">
-                            @php $avgRating = round($product->reviews_avg_rating ?? $product->reviews->avg('rating') ?? 0); @endphp
+                            @php $avgRating = round($product->reviews_avg_rating ?? 0); @endphp
                             @for($i=1; $i<=5; $i++)
                                 <i class="{{ $i <= $avgRating ? 'fa-solid' : 'fa-regular' }} fa-star"></i>
                             @endfor
                         </div>
-                        <p class="text-xs text-slate-400 font-bold uppercase tracking-wide">Dựa trên {{ $product->reviews_count ?? $product->reviews->count() }} đánh giá</p>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-wide">Dựa trên {{ $product->reviews_count ?? 0 }} đánh giá</p>
                     </div>
                     
+                    {{-- [MOD] Nút Viết Đánh Giá (Logic mới) --}}
                     <div class="mb-6">
                         @auth
+                            @php
+                                // Check xem user đã có review nào chưa
+                                $userReviews = $reviews->where('user_id', auth()->id());
+                                $reviewCount = $userReviews->count();
+                            @endphp
+
                             <button @click="showReviewModal = true" 
-                                    class="w-full py-3 bg-slate-900 text-white text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-indigo-600 transition-colors shadow-lg shadow-slate-900/10">
-                                <i class="fa-solid fa-pen-nib mr-2"></i> Viết đánh giá
+                                    class="w-full py-3 bg-slate-900 text-white text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-indigo-600 transition-colors shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2">
+                                @if($reviewCount > 0)
+                                    <i class="fa-solid fa-plus-circle text-sm"></i> Viết thêm đánh giá
+                                @else
+                                    <i class="fa-solid fa-pen-nib text-sm"></i> Viết đánh giá
+                                @endif
                             </button>
+
+                            @if($reviewCount > 0)
+                                <div class="text-[10px] text-slate-400 text-center mt-2 italic">
+                                    Bạn đã đánh giá sản phẩm này <strong class="text-slate-600">{{ $reviewCount }}</strong> lần.
+                                </div>
+                            @endif
                         @else
-                            <a href="{{ route('client.login') }}" class="block w-full py-3 bg-slate-100 text-slate-500 text-center text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-slate-200 transition-colors">
-                                Đăng nhập để đánh giá
+                            <a href="{{ route('login') }}" class="block w-full py-3 bg-slate-100 text-slate-500 text-center text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-slate-200 transition-colors">
+                                <i class="fa-solid fa-lock mr-1"></i> Đăng nhập để đánh giá
                             </a>
                         @endauth
                     </div>
 
+                    {{-- [MOD] Danh sách Review (Hiển thị Variant) --}}
                     <div class="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                         @if(isset($reviews) && $reviews->count() > 0)
                             @foreach($reviews as $review)
                                 <div class="flex gap-3 pb-4 border-b border-dashed border-slate-100 last:border-0 last:pb-0">
+                                    {{-- Avatar --}}
                                     <div class="flex-shrink-0">
                                         <img src="https://ui-avatars.com/api/?name={{ urlencode($review->user->full_name ?? $review->user->name ?? 'User') }}&background=random&color=fff&size=40" 
                                              class="w-10 h-10 rounded-full object-cover border border-slate-200" alt="Avatar">
                                     </div>
+                                    
+                                    {{-- Nội dung review --}}
                                     <div class="flex-1">
                                         <div class="flex justify-between items-start mb-1">
                                             <div>
                                                 <h4 class="font-bold text-xs text-slate-900">{{ $review->user->full_name ?? $review->user->name ?? 'Khách hàng' }}</h4>
-                                                <p class="text-[10px] text-slate-400">{{ $review->created_at->format('d/m/Y H:i') }}</p>
+                                                
+                                                <div class="flex flex-wrap items-center gap-2 mt-0.5">
+                                                    <p class="text-[10px] text-slate-400">{{ $review->created_at->format('d/m/Y') }}</p>
+                                                    
+                                                    {{-- Badge: Đã mua hàng --}}
+                                                    <span class="text-[9px] text-emerald-600 font-bold flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                                                        <i class="fa-solid fa-check-circle"></i> Đã mua
+                                                    </span>
+                                                </div>
+
+                                                {{-- [MOD] Badge: Phân loại hàng (Nếu có relation) --}}
+                                                {{-- Giả sử bạn có relation productVariant hoặc lưu text vào variant_name --}}
+                                                @if(isset($review->productVariant) || !empty($review->variant_name))
+                                                    <div class="mt-1.5 inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-[10px] text-slate-500 border border-slate-200 font-medium">
+                                                        <span class="opacity-50">Phân loại:</span>
+                                                        <span class="text-slate-700">
+                                                            {{ $review->productVariant->name ?? $review->variant_name ?? 'Size/Màu' }}
+                                                        </span>
+                                                    </div>
+                                                @endif
                                             </div>
+
+                                            {{-- Số sao --}}
                                             <div class="flex text-amber-400 text-[10px] gap-0.5">
                                                 @for($i = 1; $i <= 5; $i++)
                                                     <i class="{{ $i <= $review->rating ? 'fa-solid' : 'fa-regular' }} fa-star"></i>
                                                 @endfor
                                             </div>
                                         </div>
-                                        <p class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg rounded-tl-none">
+                                        
+                                        {{-- Comment --}}
+                                        <div class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg rounded-tl-none mt-2 relative group hover:bg-slate-100 transition-colors">
                                             {{ $review->comment }}
-                                        </p>
+                                            <div class="w-2 h-2 bg-slate-50 absolute -top-1 left-0 rotate-45 group-hover:bg-slate-100 transition-colors"></div>
+                                        </div>
                                     </div>
                                 </div>
                             @endforeach
                             
                             @if($reviews->hasPages())
-                                <div class="pt-4">
-                                    {{ $reviews->links('pagination::tailwind') }}
-                                </div>
+                                <div class="pt-4">{{ $reviews->links('pagination::tailwind') }}</div>
                             @endif
                         @else
                             <div class="text-center py-8 text-slate-400">
@@ -282,69 +347,55 @@
         @endif
     </div>
 
-    {{-- ======================== MODAL AREA ======================== --}}
-    
+    {{-- MODAL ZOOM ẢNH --}}
     <div x-show="zoomOpen" x-transition.opacity class="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
         <button @click="zoomOpen = false" class="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-black text-white rounded-full hover:rotate-90 transition-transform"><i class="fa-solid fa-xmark"></i></button>
         <img :src="zoomImage" class="max-w-full max-h-[90vh] object-contain shadow-2xl rounded-xl" @click="zoomOpen = false">
     </div>
 
-    <div x-show="showReviewModal" 
-         x-cloak
-         class="fixed inset-0 z-[150] flex items-center justify-center p-4">
-        
-        <div x-show="showReviewModal" 
-             x-transition.opacity
-             class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-             @click="showReviewModal = false"></div>
-
-        <div x-show="showReviewModal"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 scale-95 translate-y-4"
-             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
-             x-transition:leave-end="opacity-0 scale-95 translate-y-4"
-             class="bg-white w-full max-w-md rounded-2xl shadow-2xl relative z-10 overflow-hidden">
+    {{-- MODAL REVIEW (FORM) --}}
+    <div x-show="showReviewModal" x-cloak class="fixed inset-0 z-[150] flex items-center justify-center p-4">
+        <div x-show="showReviewModal" x-transition.opacity class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showReviewModal = false"></div>
+        <div x-show="showReviewModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95 translate-y-4" x-transition:enter-end="opacity-100 scale-100 translate-y-0" class="bg-white w-full max-w-md rounded-2xl shadow-2xl relative z-10 overflow-hidden">
             
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                <h3 class="font-black text-slate-900 uppercase text-sm tracking-wide">Viết đánh giá</h3>
-                <button @click="showReviewModal = false" class="text-slate-400 hover:text-rose-500 transition-colors">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+                <h3 class="font-black text-slate-900 uppercase text-sm tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-star text-amber-400"></i> Đánh giá sản phẩm
+                </h3>
+                <button @click="showReviewModal = false" class="text-slate-400 hover:text-rose-500 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-
+            
             <form action="{{ route('client.reviews.store') }}" method="POST" class="p-6">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 
+                {{-- [OPTIONAL] Nếu Backend bạn hỗ trợ order_id, hãy uncomment dòng dưới và xử lý logic truyền order_id vào --}}
+                {{-- <input type="hidden" name="order_id" value="..."> --}}
+
                 <div class="mb-6 text-center" x-data="{ rating: 5 }">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Bạn cảm thấy thế nào?</label>
-                    <div class="flex justify-center gap-2 text-2xl text-slate-200 cursor-pointer">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Mức độ hài lòng</label>
+                    <div class="flex justify-center gap-2 text-3xl text-slate-200 cursor-pointer mb-2">
                         <template x-for="i in 5">
-                            <i class="fa-star transition-all hover:scale-110"
-                               :class="i <= rating ? 'fa-solid text-amber-400' : 'fa-solid text-slate-200 hover:text-amber-300'"
+                            <i class="fa-star transition-all hover:scale-110" 
+                               :class="i <= rating ? 'fa-solid text-amber-400 drop-shadow-sm' : 'fa-solid text-slate-200 hover:text-amber-200'" 
                                @click="rating = i"></i>
                         </template>
                     </div>
                     <input type="hidden" name="rating" x-model="rating">
-                    <div class="mt-2 text-xs font-bold text-indigo-600" x-text="['Tệ', 'Không hài lòng', 'Bình thường', 'Hài lòng', 'Tuyệt vời'][rating-1]"></div>
+                    <div class="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold" 
+                         x-text="['Rất tệ', 'Không hài lòng', 'Bình thường', 'Hài lòng', 'Tuyệt vời'][rating-1]">
+                    </div>
                 </div>
 
                 <div class="mb-6">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Nội dung đánh giá</label>
-                    <textarea name="comment" rows="4" 
-                              class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none"
-                              placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này..."></textarea>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Nhận xét của bạn</label>
+                    <textarea name="comment" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none placeholder:text-slate-400" placeholder="Chất lượng sản phẩm, thái độ phục vụ..."></textarea>
+                    <p class="text-[10px] text-slate-400 mt-1 text-right italic">* Đánh giá sẽ giúp ích cho những người mua sau.</p>
                 </div>
 
                 <div class="flex gap-3">
-                    <button type="button" @click="showReviewModal = false" class="flex-1 py-3 bg-white border border-slate-200 text-slate-600 text-xs font-bold uppercase rounded-lg hover:bg-slate-50 transition-colors">
-                        Hủy bỏ
-                    </button>
-                    <button type="submit" class="flex-1 py-3 bg-slate-900 text-white text-xs font-bold uppercase rounded-lg hover:bg-indigo-600 shadow-lg shadow-slate-900/10 transition-all">
-                        Gửi đánh giá
-                    </button>
+                    <button type="button" @click="showReviewModal = false" class="flex-1 py-3 bg-white border border-slate-200 text-slate-600 text-xs font-bold uppercase rounded-lg hover:bg-slate-50 transition-colors">Hủy bỏ</button>
+                    <button type="submit" class="flex-1 py-3 bg-slate-900 text-white text-xs font-bold uppercase rounded-lg hover:bg-indigo-600 shadow-lg shadow-slate-900/10 transition-all">Gửi đánh giá</button>
                 </div>
             </form>
         </div>
@@ -352,6 +403,7 @@
 
 </div>
 
+{{-- SCRIPT ALPINEJS --}}
 <script>
     function productDetail(config) {
         return {
@@ -369,28 +421,15 @@
             showReviewModal: false,
 
             init() {
-                let totalStock = 0;
-                if (this.variantsMap && typeof this.variantsMap === 'object') {
-                    Object.values(this.variantsMap).forEach(variant => {
-                        totalStock += variant.stock;
-                    });
+                const keys = Object.keys(this.variantsMap);
+                const hasAttributes = {{ (isset($groupedAttributes) && $groupedAttributes->count() > 0) ? 'true' : 'false' }};
+
+                if (!hasAttributes && keys.length > 0) {
+                    const firstItem = this.variantsMap[keys[0]];
+                    this.selectedVariantId = firstItem.id;
+                    this.currentStock = firstItem.stock;
+                    this.currentPrice = firstItem.price || config.basePrice;
                 }
-                
-                @if(isset($groupedAttributes) && $groupedAttributes->count() == 0)
-                    // Logic sản phẩm đơn: Lấy ID từ data object thay vì index
-                    const keys = Object.keys(this.variantsMap);
-                    if(keys.length > 0) {
-                        const firstItem = this.variantsMap[keys[0]];
-                        // FIX: Lấy ID chuẩn từ dữ liệu thay vì lấy key
-                        this.selectedVariantId = firstItem.id;
-                        this.currentStock = firstItem.stock;
-                        this.currentPrice = firstItem.price || config.basePrice;
-                    } else {
-                        this.currentStock = totalStock;
-                    }
-                @else
-                    this.currentStock = totalStock;
-                @endif
             },
 
             formatMoney(amount) {
@@ -410,13 +449,21 @@
             },
 
             findMatchingVariant() {
-                const selectedIds = Object.values(this.selectedAttributes).map(Number).sort().toString();
+                const selectedIds = Object.values(this.selectedAttributes)
+                                          .map(Number)
+                                          .sort((a, b) => a - b)
+                                          .toString();
+                
                 let found = false;
 
                 for (const [key, data] of Object.entries(this.variantsMap)) {
-                    const variantAttrIds = data.attributes.sort().toString();
+                    const variantAttrIds = data.attributes
+                                              .map(Number)
+                                              .sort((a, b) => a - b)
+                                              .toString();
+
                     if (selectedIds === variantAttrIds) {
-                        this.selectedVariantId = data.id; // Lấy ID chuẩn
+                        this.selectedVariantId = data.id;
                         this.currentPrice = data.price || config.basePrice;
                         this.currentStock = data.stock;
                         this.qty = 1;
@@ -427,20 +474,20 @@
 
                 if (!found) {
                     this.currentStock = 0;
-                    this.errorMsg = 'Tạm hết hàng phiên bản này.';
+                    this.errorMsg = 'Phiên bản này tạm hết hàng.';
                     this.selectedVariantId = null;
                 }
             },
 
             toggleWishlist() {
                 this.isLiked = !this.isLiked;
-                // AJAX call logic here...
+                // Gọi API toggle wishlist nếu cần
             },
 
             submitCart() {
                 @if(isset($groupedAttributes) && $groupedAttributes->count() > 0)
                     if (!this.selectedVariantId) {
-                        this.errorMsg = 'Vui lòng chọn Phân loại!';
+                        this.errorMsg = 'Vui lòng chọn đầy đủ phân loại (Size/Màu)!';
                         return;
                     }
                 @endif
@@ -450,15 +497,40 @@
                     return;
                 }
 
-                // FIX QUAN TRỌNG: Gán giá trị vào đúng input 'variant_id'
                 const form = document.getElementById('addToCartForm');
-                const variantInput = form.querySelector('input[name="variant_id"]');
-                
-                if(variantInput) {
-                    variantInput.value = this.selectedVariantId; 
-                }
+                const formData = new FormData(form);
+                formData.set('product_variant_id', this.selectedVariantId);
 
-                form.submit();
+                fetch("{{ route('client.carts.add') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const cartCountEl = document.getElementById('cart-count');
+                        if (cartCountEl) {
+                            cartCountEl.innerText = data.cart_count;
+                            cartCountEl.style.display = 'flex';
+                        }
+                        
+                        if (data.toast) {
+                            window.dispatchEvent(new CustomEvent('show-toast', { detail: data.toast }));
+                        } else {
+                            window.showToast(data.message, 'success');
+                        }
+                    } else {
+                        window.showToast(data.message || 'Có lỗi xảy ra', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    window.showToast('Lỗi kết nối, vui lòng thử lại.', 'error');
+                });
             }
         }
     }
@@ -472,61 +544,11 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 </style>
 
-{{-- === TOAST NOTIFICATION === --}}
-<div x-data="{ 
-        show: false, 
-        message: '', 
-        type: 'success' 
-     }" 
-     x-init="
-        @if(session('success')) 
-            message = '{{ session('success') }}'; type = 'success'; show = true; 
-            setTimeout(() => show = false, 4000);
-        @endif
-        @if(session('error')) 
-            message = '{{ session('error') }}'; type = 'error'; show = true; 
-            setTimeout(() => show = false, 5000);
-        @endif
-        @if($errors->any())
-            message = '{{ $errors->first() }}'; type = 'error'; show = true; 
-            setTimeout(() => show = false, 5000);
-        @endif
-     "
-     x-show="show" 
-     x-cloak
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0 translate-y-2 scale-95"
-     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-     x-transition:leave-end="opacity-0 translate-y-2 scale-95"
-     class="fixed top-24 right-5 z-[200] max-w-sm w-full bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start gap-4"
-     :class="type === 'success' ? 'border-emerald-500 shadow-emerald-500/10' : 'border-rose-500 shadow-rose-500/10'">
-    
-    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-         :class="type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'">
-        <i class="fa-solid" :class="type === 'success' ? 'fa-check' : 'fa-circle-exclamation'"></i>
-    </div>
-
-    <div class="flex-1">
-        <h4 class="font-black text-sm uppercase tracking-wide mb-1" 
-            :class="type === 'success' ? 'text-emerald-700' : 'text-rose-700'"
-            x-text="type === 'success' ? 'Thành công' : 'Có lỗi xảy ra'">
-        </h4>
-        <p class="text-xs text-slate-600 font-medium leading-relaxed" x-text="message"></p>
-
-        <template x-if="type === 'success'">
-            <div class="mt-2">
-                <a href="{{ route('client.carts.index') }}" class="text-[10px] font-bold uppercase tracking-wider underline decoration-emerald-300 decoration-2 underline-offset-2 hover:text-emerald-800 hover:decoration-emerald-500 transition-all">
-                    Xem giỏ hàng &rarr;
-                </a>
-            </div>
-        </template>
-    </div>
-
-    <button @click="show = false" class="text-slate-400 hover:text-slate-600 transition-colors p-1">
-        <i class="fa-solid fa-xmark text-lg"></i>
-    </button>
-</div>
-
+<script>
+    window.showToast = function(message, type = 'success') {
+        window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: { message: message, type: type }
+        }));
+    }
+</script>
 @endsection

@@ -17,6 +17,8 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained('suppliers');
             $table->decimal('total_amount', 15, 2)->default(0);
             $table->string('status')->default('pending'); // pending, completed, cancelled
+            $table->text('note')->nullable();
+            $table->timestamp('expected_at')->nullable();
             $table->timestamps();
         });
     }

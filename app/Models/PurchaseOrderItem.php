@@ -10,16 +10,18 @@ class PurchaseOrderItem extends Model
 {
     use HasFactory;
 
-    protected $table = 'po_items'; // ← ĐÚNG TÊN BẢNG
+    // Khai báo tên bảng vì không theo chuẩn (po_items thay vì purchase_order_items)
+    protected $table = 'po_items'; 
 
-    public $timestamps = false;
+    // Đã xóa dòng: public $timestamps = false; 
+    // Lý do: Trong file Migration bạn có dòng $table->timestamps(), nên Model cần bật tính năng này.
 
     protected $fillable = [
         'purchase_order_id',
         'product_variant_id',
         'quantity',
         'import_price',
-        'total',
+        'subtotal', // <-- QUAN TRỌNG: Đổi 'total' thành 'subtotal' để khớp với Database
     ];
 
     public function purchaseOrder(): BelongsTo

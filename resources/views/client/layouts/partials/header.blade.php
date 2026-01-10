@@ -6,6 +6,6 @@
         </form>
     </li>
 @else
-    <li><a href="{{ route('client.login') }}">Đăng nhập</a></li>
-    <li><a href="{{ route('client.register') }}">Đăng ký</a></li>
+    <li><a href="{{ route('login') }}">Đăng nhập</a></li>
+    <li><a href="{{ route('register') }}">Đăng ký</a></li>
 @endauth
