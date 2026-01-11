@@ -69,14 +69,55 @@
                             @foreach($po->items as $item)
                             <tr class="hover:bg-slate-50/50 text-sm text-slate-700">
                                 <td class="px-6 py-4">
-                                    <div class="font-bold">{{ $item->variant->product->name ?? 'SP đã xóa' }}</div>
-                                    <div class="text-xs text-slate-500 mt-0.5">
-                                        {{ $item->variant->size ?? '' }} / {{ $item->variant->color ?? '' }} — SKU: {{ $item->variant->sku ?? '' }}
+                                    {{-- TÊN SẢN PHẨM --}}
+                                    <div class="font-bold text-slate-800">
+                                        {{ $item->variant->product->name ?? 'Sản phẩm đã xóa' }}
+                                    </div>
+
+                                    {{-- THUỘC TÍNH (SỬA LỖI TẠI ĐÂY) --}}
+                                    <div class="text-xs text-slate-500 mt-1">
+                                        @php
+                                            // Cách 1: Dùng Accessor attribute_string nếu bạn đã định nghĩa trong Model (Khuyên dùng)
+                                            // Hiển thị: Size: 42 / Màu: Đỏ
+                                            $attrDisplay = $item->variant->attribute_string ?? '';
+
+                                            // Cách 2: Nếu chưa có Accessor, lấy thủ công từng giá trị ->value
+                                            if (empty($attrDisplay)) {
+                                                $size  = $item->variant->size->value ?? '';   // Thêm ->value
+                                                $color = $item->variant->color->value ?? '';  // Thêm ->value
+                                                
+                                                $parts = [];
+                                                if ($size)  $parts[] = "Size: $size";
+                                                if ($color) $parts[] = "Màu: $color";
+                                                $attrDisplay = implode(' / ', $parts);
+                                            }
+                                        @endphp
+
+                                        {{-- Hiển thị chuỗi đã xử lý --}}
+                                        {{ $attrDisplay ?: 'Mặc định' }} 
+                                        
+                                        <span class="text-slate-300 mx-1">|</span> 
+                                        SKU: <span class="font-mono text-slate-600">{{ $item->variant->sku ?? 'N/A' }}</span>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 text-right">{{ number_format($item->import_price, 0, ',', '.') }}</td>
-                                <td class="px-6 py-4 text-center font-bold">x{{ $item->quantity }}</td>
-                                <td class="px-6 py-4 text-right font-bold">{{ number_format($item->total, 0, ',', '.') }}</td>
+                                
+                                {{-- ĐƠN GIÁ --}}
+                                <td class="px-6 py-4 text-right font-mono">
+                                    {{ number_format($item->import_price, 0, ',', '.') }}
+                                </td>
+
+                                {{-- SỐ LƯỢNG --}}
+                                <td class="px-6 py-4 text-center">
+                                    <span class="bg-slate-100 text-slate-700 py-1 px-2 rounded font-bold text-xs">
+                                        x{{ $item->variant->pivot->quantity ?? $item->quantity }}
+                                    </span>
+                                </td>
+
+                                {{-- THÀNH TIỀN --}}
+                                <td class="px-6 py-4 text-right font-bold text-indigo-600 font-mono">
+                                    {{-- Tính lại subtotal nếu trong DB chưa lưu hoặc dùng cột subtotal --}}
+                                    {{ number_format($item->subtotal ?? ($item->quantity * $item->import_price), 0, ',', '.') }} ₫
+                                </td>
                             </tr>
                             @endforeach
                         </tbody>

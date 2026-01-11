@@ -95,12 +95,38 @@
                         <td class="px-6 py-4">
                             @if($log->variant)
                                 <div class="font-bold text-slate-800">{{ $log->variant->product->name ?? 'Sản phẩm đã xóa' }}</div>
-                                <div class="text-xs text-slate-500 mt-0.5">
-                                    {{ $log->variant->size }} / {{ $log->variant->color }} —
-                                    <span class="font-mono text-indigo-600">{{ $log->variant->sku }}</span>
+                                
+                                {{-- SỬA LỖI HIỂN THỊ TẠI ĐÂY --}}
+                                <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-1">
+                                    @php
+                                        // Xử lý lấy giá trị từ object hoặc string
+                                        $v = $log->variant;
+                                        $sizeVal  = is_object($v->size) ? ($v->size->value ?? '') : $v->size;
+                                        $colorVal = is_object($v->color) ? ($v->color->value ?? '') : $v->color;
+                                    @endphp
+
+                                    {{-- Hiển thị Size --}}
+                                    @if($sizeVal)
+                                        <span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-medium">
+                                            Size: {{ $sizeVal }}
+                                        </span>
+                                    @endif
+
+                                    {{-- Hiển thị Màu --}}
+                                    @if($colorVal)
+                                        <span class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-600 font-medium">
+                                            Màu: {{ $colorVal }}
+                                        </span>
+                                    @endif
+                                    
+                                    {{-- SKU --}}
+                                    <span class="text-slate-300 mx-1">|</span>
+                                    <span class="font-mono text-indigo-600 font-bold">{{ $v->sku }}</span>
                                 </div>
                             @else
-                                <span class="text-rose-500 italic">Biến thể đã bị xóa</span>
+                                <span class="text-rose-500 italic text-xs bg-rose-50 px-2 py-1 rounded border border-rose-100">
+                                    <i class="fa-solid fa-ban mr-1"></i> Biến thể đã bị xóa
+                                </span>
                             @endif
                         </td>
 

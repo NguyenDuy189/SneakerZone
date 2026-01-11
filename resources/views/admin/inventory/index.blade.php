@@ -74,76 +74,115 @@
                         <th class="px-4 py-3 text-right">Cập nhật nhanh</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
+                <<tbody class="bg-white divide-y divide-gray-100">
                     @forelse($variants as $variant)
                     <tr class="text-gray-700 hover:bg-gray-50 transition group">
                         
+                        {{-- 1. CỘT SẢN PHẨM & HÌNH ẢNH --}}
                         <td class="px-4 py-3">
                             <div class="flex items-center text-sm">
-                                <div class="relative w-10 h-10 mr-3 rounded-lg overflow-hidden border border-gray-200">
+                                <div class="relative w-10 h-10 mr-3 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                                    @php
+                                        // Ưu tiên ảnh biến thể -> ảnh sản phẩm cha -> ảnh mặc định
+                                        $imgUrl = asset('images/default.png');
+                                        if (!empty($variant->image_url)) {
+                                            $imgUrl = asset('storage/' . $variant->image_url);
+                                        } elseif (!empty($variant->product->thumbnail)) {
+                                            $imgUrl = asset('storage/' . $variant->product->thumbnail);
+                                        }
+                                    @endphp
                                     <img class="object-cover w-full h-full" 
-                                         src="{{ $variant->image_url ? asset('storage/'.$variant->image_url) : ($variant->product->thumbnail ? asset('storage/'.$variant->product->thumbnail) : asset('images/default.png')) }}" 
-                                         alt="" loading="lazy" />
+                                            src="{{ $imgUrl }}" 
+                                            alt="{{ $variant->product->name ?? 'SP' }}" 
+                                            loading="lazy" 
+                                            onerror="this.src='{{ asset('images/default.png') }}'" /> {{-- Fallback nếu ảnh 404 --}}
                                 </div>
                                 <div>
                                     <p class="font-semibold text-gray-800 line-clamp-1 w-48" title="{{ $variant->product->name ?? '' }}">
-                                        {{ $variant->product->name ?? 'Sản phẩm lỗi' }}
+                                        {{ $variant->product->name ?? 'Sản phẩm đã xóa' }}
                                     </p>
-                                    <p class="text-[10px] text-gray-500">ID: #{{ $variant->id }}</p>
+                                    <p class="text-[10px] text-gray-500 font-mono">ID: #{{ $variant->id }}</p>
                                 </div>
                             </div>
                         </td>
 
+                        {{-- 2. CỘT PHÂN LOẠI (MÀU / SIZE) - ĐÃ SỬA LỖI HIỂN THỊ --}}
                         <td class="px-4 py-3 text-sm">
-                            <div class="flex gap-1">
-                                <span class="px-2 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-600 font-medium">
-                                    {{ $variant->color }}
-                                </span>
-                                <span class="px-2 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-600 font-medium">
-                                    {{ $variant->size }}
-                                </span>
+                            <div class="flex flex-wrap gap-1">
+                                {{-- Hiển thị Màu --}}
+                                @if(!empty($variant->color))
+                                    <span class="px-2 py-0.5 text-xs bg-indigo-50 border border-indigo-100 rounded text-indigo-700 font-medium whitespace-nowrap">
+                                        {{-- Kiểm tra nếu là object thì lấy ->value, nếu là string thì in ra luôn --}}
+                                        {{ is_object($variant->color) ? ($variant->color->value ?? 'N/A') : $variant->color }}
+                                    </span>
+                                @endif
+
+                                {{-- Hiển thị Size --}}
+                                @if(!empty($variant->size))
+                                    <span class="px-2 py-0.5 text-xs bg-emerald-50 border border-emerald-100 rounded text-emerald-700 font-medium whitespace-nowrap">
+                                        {{ is_object($variant->size) ? ($variant->size->value ?? 'N/A') : $variant->size }}
+                                    </span>
+                                @endif
+
+                                {{-- Nếu không có cả 2 --}}
+                                @if(empty($variant->color) && empty($variant->size))
+                                    <span class="text-xs text-gray-400 italic">Mặc định</span>
+                                @endif
                             </div>
                         </td>
 
+                        {{-- 3. CỘT SKU --}}
                         <td class="px-4 py-3 text-sm font-mono text-gray-500">
                             {{ $variant->sku }}
                         </td>
 
+                        {{-- 4. CỘT TỒN KHO (THANH TRẠNG THÁI) --}}
                         <td class="px-4 py-3" style="min-width: 150px;">
                             <div class="flex items-center gap-3">
                                 <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                                     @php
                                         $qty = $variant->stock_quantity;
-                                        $percent = min(($qty / 50) * 100, 100); 
-                                        $color = $qty == 0 ? 'bg-red-500' : ($qty <= 10 ? 'bg-amber-500' : 'bg-emerald-500');
+                                        $percent = $qty > 0 ? min(($qty / 50) * 100, 100) : 0; 
+                                        $colorClass = $qty == 0 ? 'bg-red-500' : ($qty <= 10 ? 'bg-amber-500' : 'bg-emerald-500');
                                     @endphp
-                                    <div class="{{ $color }} h-full rounded-full" style="width: {{ $percent }}%"></div>
+                                    <div class="{{ $colorClass }} h-full rounded-full transition-all duration-500" style="width: {{ $percent }}%"></div>
                                 </div>
                                 <span class="text-sm font-bold w-8 text-right">{{ $qty }}</span>
                             </div>
                         </td>
 
+                        {{-- 5. TRẠNG THÁI TEXT --}}
                         <td class="px-4 py-3 text-center">
                             @if($qty == 0)
-                                <span class="px-2 py-1 font-bold text-red-700 bg-red-100 rounded-full text-xs">Hết hàng</span>
+                                <span class="inline-flex items-center px-2 py-1 font-bold text-red-700 bg-red-100 rounded-full text-xs">
+                                    Hết hàng
+                                </span>
                             @elseif($qty <= 10)
-                                <span class="px-2 py-1 font-bold text-amber-700 bg-amber-100 rounded-full text-xs">Sắp hết</span>
+                                <span class="inline-flex items-center px-2 py-1 font-bold text-amber-700 bg-amber-100 rounded-full text-xs">
+                                    Sắp hết
+                                </span>
                             @else
-                                <span class="px-2 py-1 font-bold text-emerald-700 bg-emerald-100 rounded-full text-xs">Sẵn hàng</span>
+                                <span class="inline-flex items-center px-2 py-1 font-bold text-emerald-700 bg-emerald-100 rounded-full text-xs">
+                                    Sẵn hàng
+                                </span>
                             @endif
                         </td>
 
+                        {{-- 6. NÚT ĐIỀU CHỈNH --}}
                         <td class="px-4 py-3 text-right">
                             <button onclick="openUpdateModal({{ $variant->id }}, '{{ $variant->sku }}', {{ $variant->stock_quantity }}, {{ $variant->original_price }})"
-                                    class="text-indigo-600 hover:text-indigo-900 border border-indigo-200 hover:bg-indigo-50 px-3 py-1 rounded text-xs font-bold transition">
-                                <i class="fa-solid fa-pen-to-square mr-1"></i> Điều chỉnh
+                                    class="text-indigo-600 hover:text-indigo-900 border border-indigo-200 hover:bg-indigo-50 px-3 py-1 rounded text-xs font-bold transition flex items-center gap-1 ml-auto">
+                                <i class="fa-solid fa-pen-to-square"></i> Điều chỉnh
                             </button>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-gray-400">
-                            Không tìm thấy dữ liệu.
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                            <div class="flex flex-col items-center">
+                                <i class="fa-solid fa-box-open text-4xl mb-3 text-gray-300"></i>
+                                <p>Không tìm thấy dữ liệu tồn kho nào.</p>
+                            </div>
                         </td>
                     </tr>
                     @endforelse

@@ -192,83 +192,88 @@
 </div>
 
 {{-- SCRIPT: LOGIC ALPINEJS AN TOÀN --}}
+{{-- SCRIPT: LOGIC ALPINEJS --}}
 <script>
-document.addEventListener('alpine:init', () => {
-    
-    // 1. Dữ liệu từ Laravel được inject an toàn vào biến JS
-    const serverData = {
-        products: {!! json_encode($products) !!},
-        oldItems: {!! json_encode(old('items')) !!},
-        errors:   {!! json_encode($errors->messages()) !!}
+    // 1. KHỞI TẠO DỮ LIỆU TỪ PHP RA BIẾN TOÀN CỤC (Global Variable)
+    // Cách này giúp bạn dễ dàng debug trong Console trình duyệt bằng cách gõ: window.serverData
+    window.serverData = {
+        products: {!! json_encode($products, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!} || [],
+        
+        // Lấy dữ liệu cũ nếu form lỗi, nếu không có thì trả về null
+        oldItems: {!! json_encode(old('items'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!} || null,
+        
+        errors: {!! json_encode($errors->messages(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) !!} || {}
     };
 
-    Alpine.data('purchaseOrderForm', () => ({
-        products: serverData.products,
-        items: [],
-        errors: serverData.errors,
+    // 2. LOGIC ALPINEJS
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('purchaseOrderForm', () => ({
+            products: window.serverData.products,
+            items: [],
+            errors: window.serverData.errors,
 
-        init() {
-            // Nếu có dữ liệu cũ (do submit lỗi), load lại. Nếu không, tạo 1 dòng trống
-            if (serverData.oldItems && serverData.oldItems.length > 0) {
-                // Convert các giá trị số về dạng số chuẩn (vì old() trả về string)
-                this.items = serverData.oldItems.map(item => ({
-                    variant_id: item.variant_id,
-                    quantity: parseInt(item.quantity) || 1,
-                    import_price: parseFloat(item.import_price) || 0
-                }));
-            } else {
-                this.addItem();
+            init() {
+                // Kiểm tra xem có dữ liệu cũ cần load lại không
+                if (window.serverData.oldItems && window.serverData.oldItems.length > 0) {
+                    this.items = window.serverData.oldItems.map(item => ({
+                        variant_id: item.variant_id,
+                        quantity: parseInt(item.quantity) || 1,
+                        import_price: parseFloat(item.import_price) || 0
+                    }));
+                } else {
+                    // Nếu không, tạo dòng đầu tiên trống
+                    this.addItem();
+                }
+            },
+
+            addItem() {
+                this.items.push({ 
+                    variant_id: '', 
+                    quantity: 1, 
+                    import_price: 0 
+                });
+            },
+
+            removeItem(index) {
+                if (this.items.length > 1) {
+                    this.items.splice(index, 1);
+                }
+            },
+
+            updatePrice(index) {
+                const selectedId = this.items[index].variant_id;
+                // Tìm sản phẩm trong danh sách (Lưu ý: ID có thể lệch kiểu số/chuỗi nên dùng ==)
+                const product = this.products.find(p => p.id == selectedId);
+                
+                if (product) {
+                    this.items[index].import_price = product.price;
+                } else {
+                    this.items[index].import_price = 0;
+                }
+            },
+
+            getError(field) {
+                if (this.errors && this.errors[field]) {
+                    return this.errors[field][0];
+                }
+                return null;
+            },
+
+            get totalAmount() {
+                return this.items.reduce((sum, item) => {
+                    const q = parseFloat(item.quantity) || 0;
+                    const p = parseFloat(item.import_price) || 0;
+                    return sum + (q * p);
+                }, 0);
+            },
+
+            formatMoney(amount) {
+                return new Intl.NumberFormat('vi-VN', {
+                    style: 'currency',
+                    currency: 'VND'
+                }).format(amount);
             }
-        },
-
-        addItem() {
-            this.items.push({ 
-                variant_id: '', 
-                quantity: 1, 
-                import_price: 0 
-            });
-        },
-
-        removeItem(index) {
-            if (this.items.length > 1) {
-                this.items.splice(index, 1);
-            }
-        },
-
-        updatePrice(index) {
-            const selectedId = this.items[index].variant_id;
-            const product = this.products.find(p => p.id == selectedId);
-            
-            if (product) {
-                // Tự động điền giá
-                this.items[index].import_price = product.price;
-            } else {
-                this.items[index].import_price = 0;
-            }
-        },
-
-        getError(field) {
-            if (this.errors && this.errors[field]) {
-                return this.errors[field][0];
-            }
-            return null;
-        },
-
-        get totalAmount() {
-            return this.items.reduce((sum, item) => {
-                const q = parseFloat(item.quantity) || 0;
-                const p = parseFloat(item.import_price) || 0;
-                return sum + (q * p);
-            }, 0);
-        },
-
-        formatMoney(amount) {
-            return new Intl.NumberFormat('vi-VN', {
-                style: 'currency',
-                currency: 'VND'
-            }).format(amount);
-        }
-    }));
-});
+        }));
+    });
 </script>
 @endsection

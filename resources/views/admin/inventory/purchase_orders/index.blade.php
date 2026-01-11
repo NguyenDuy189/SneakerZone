@@ -79,39 +79,66 @@
                                 {{ $po->code }}
                             </a>
                         </td>
-                        <td class="px-6 py-4 font-medium">{{ $po->supplier->name }}</td>
+                        
+                        {{-- SỬA LỖI 1: Kiểm tra NCC có tồn tại không --}}
+                        <td class="px-6 py-4 font-medium">
+                            @if($po->supplier)
+                                <span class="text-slate-700">{{ $po->supplier->name }}</span>
+                            @else
+                                <span class="text-slate-400 italic"><i class="fa-solid fa-ban mr-1"></i> NCC đã xóa</span>
+                            @endif
+                        </td>
+
+                        {{-- SỬA LỖI 2: Kiểm tra Người tạo (User) --}}
                         <td class="px-6 py-4 text-center">
                             <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">
-                                {{ $po->creator->full_name ?? 'System' }}
+                                {{-- Ưu tiên full_name, fallback về name, fallback về 'System' --}}
+                                {{ $po->creator->full_name ?? $po->creator->name ?? 'System' }}
                             </span>
                         </td>
+
                         <td class="px-6 py-4 text-right font-bold text-slate-800">
                             {{ number_format($po->total_amount, 0, ',', '.') }} ₫
                         </td>
                         <td class="px-6 py-4 text-slate-500">
-                            {{ $po->created_at->format('d/m/Y') }}
+                            {{ $po->created_at ? $po->created_at->format('d/m/Y') : 'N/A' }}
                         </td>
                         <td class="px-6 py-4 text-center">
                             @if($po->status === 'completed')
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">Đã nhập kho</span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <i class="fa-solid fa-check mr-1"></i> Đã nhập
+                                </span>
                             @elseif($po->status === 'cancelled')
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">Đã hủy</span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                    <i class="fa-solid fa-xmark mr-1"></i> Đã hủy
+                                </span>
                             @else
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">Chờ duyệt</span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                    <i class="fa-regular fa-clock mr-1"></i> Chờ duyệt
+                                </span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <a href="{{ route('admin.purchase_orders.show', $po->id) }}" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 shadow-sm transition-all">
+                            <a href="{{ route('admin.purchase_orders.show', $po->id) }}" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 shadow-sm transition-all" title="Xem chi tiết">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="7" class="py-12 text-center text-slate-400">Không tìm thấy phiếu nhập hàng nào.</td></tr>
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-slate-400">
+                            <div class="flex flex-col items-center justify-center">
+                                <i class="fa-regular fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                                <p>Không tìm thấy phiếu nhập hàng nào.</p>
+                            </div>
+                        </td>
+                    </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+        
+        {{-- PAGINATION --}}
         <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
             {{ $orders->withQueryString()->links() }}
         </div>

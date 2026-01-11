@@ -61,27 +61,31 @@ class PurchaseOrderController extends Controller
     {
         $suppliers = Supplier::whereNull('deleted_at')->orderBy('name')->get();
 
-        // Load sản phẩm để chọn
+        // Đảm bảo dữ liệu products được format chuẩn array/collection
         $products = ProductVariant::with('product')
             ->whereNull('deleted_at')
             ->whereHas('product', fn($q) => $q->whereNull('deleted_at'))
             ->get()
             ->map(function ($v) {
-                // Tạo tên hiển thị an toàn (tránh lỗi nếu color/size null)
-                $variantName = $v->product->name;
+                $name = $v->product->name;
                 if ($v->color || $v->size) {
-                    $variantName .= " - " . ($v->color ?? '') . "/" . ($v->size ?? '');
+                    // Kiểm tra null để tránh lỗi nối chuỗi
+                    $color = $v->color->value ?? ''; // Giả sử color là object attribute value
+                    $size  = $v->size->value ?? '';
+                    // Nếu bạn dùng Accessor getColorAttribute() trong model thì dùng $v->color_attribute->value
+                    // Dưới đây là cách an toàn nhất dựa trên code cũ của bạn:
+                    $attrString = $v->attribute_string ?? ''; // Nếu có accessor
+                    if($attrString) $name .= " - " . $attrString;
                 }
 
                 return [
                     'id'    => $v->id,
-                    'name'  => $variantName,
+                    'name'  => $name,
                     'sku'   => $v->sku,
-                    'image' => $v->image_url ?? $v->product->thumbnail,
                     'stock' => $v->stock_quantity,
-                    'price' => $v->original_price
+                    'price' => $v->original_price ?? 0 // Giá nhập mặc định
                 ];
-            });
+            })->values(); // Reset keys để đảm bảo JS nhận là Array, không phải Object
 
         return view('admin.inventory.purchase_orders.create', compact('suppliers', 'products'));
     }
