@@ -534,4 +534,76 @@ class ProductController extends Controller
             Storage::disk('public')->delete($path);
         }
     }
+
+    // ==========================================
+    // 4. QUẢN LÝ THÙNG RÁC (SOFT DELETE) - CẦN THÊM ĐOẠN NÀY
+    // ==========================================
+
+    public function trash(Request $request)
+    {
+        // Lấy danh sách sản phẩm đã xóa mềm
+        $query = Product::onlyTrashed()->with(['brand', 'categories']);
+
+        // Hỗ trợ tìm kiếm trong thùng rác
+        if ($request->filled('keyword')) {
+            $keyword = trim($request->keyword);
+            $query->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                  ->orWhere('sku_code', 'like', "%{$keyword}%");
+            });
+        }
+
+        $products = $query->latest()->paginate(10)->withQueryString();
+
+        // Trả về view thùng rác (Bạn cần tạo file view này)
+        return view('admin.products.trash', compact('products'));
+    }
+
+    public function restore($id)
+    {
+        try {
+            // Tìm sản phẩm trong thùng rác và khôi phục
+            $product = Product::onlyTrashed()->findOrFail($id);
+            $product->restore();
+
+            return redirect()->route('admin.products.trash')
+                             ->with('success', 'Đã khôi phục sản phẩm: ' . $product->name);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Lỗi khôi phục: ' . $e->getMessage());
+        }
+    }
+
+    public function forceDelete($id)
+    {
+        try {
+            $product = Product::onlyTrashed()->findOrFail($id);
+
+            // 1. Xóa ảnh đại diện (Thumbnail)
+            if ($product->image) {
+                $this->deleteFile($product->image);
+            }
+
+            // 2. Xóa ảnh Gallery (Nếu có quan hệ gallery_images)
+            // Lưu ý: Cần đảm bảo load relationship hoặc query trực tiếp
+            foreach ($product->gallery_images()->get() as $img) {
+                $this->deleteFile($img->image_path);
+                $img->delete();
+            }
+
+            // 3. Xóa ảnh các biến thể (Variants)
+            foreach ($product->variants()->get() as $variant) {
+                $this->deleteFile($variant->image_url);
+                // Xóa variants sẽ tự động cascade nếu DB setup đúng, 
+                // nhưng xóa file ảnh thì phải làm thủ công ở đây.
+            }
+
+            // 4. Xóa vĩnh viễn record sản phẩm khỏi DB
+            $product->forceDelete();
+
+            return redirect()->route('admin.products.trash')
+                             ->with('success', 'Đã xóa vĩnh viễn sản phẩm.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Lỗi xóa vĩnh viễn: ' . $e->getMessage());
+        }
+    }
 }

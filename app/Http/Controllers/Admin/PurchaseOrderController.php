@@ -89,6 +89,9 @@ class PurchaseOrderController extends Controller
     /**
      * LƯU PHIẾU NHẬP (STORE)
      */
+    /**
+     * LƯU PHIẾU NHẬP (STORE)
+     */
     public function store(Request $request)
     {
         // 1. Làm sạch dữ liệu items
@@ -102,7 +105,7 @@ class PurchaseOrderController extends Controller
         // 2. Validate
         $request->validate([
             'supplier_id' => ['required', Rule::exists('suppliers', 'id')->whereNull('deleted_at')],
-            'expected_at' => 'nullable|date|after_or_equal:today',
+            // ĐÃ XÓA: dòng validate 'expected_at' vì giờ tự động lấy
             'note'        => 'nullable|string|max:1000',
             'items'       => 'required|array|min:1|max:200',
             'items.*.variant_id' => ['required', 'distinct', Rule::exists('product_variants', 'id')->whereNull('deleted_at')],
@@ -123,10 +126,13 @@ class PurchaseOrderController extends Controller
             $purchaseOrder = PurchaseOrder::create([
                 'code'         => $poCode,
                 'supplier_id'  => $request->supplier_id,
-                // 'user_id'   => Auth::id(), // <-- Tạm ẩn dòng này vì bảng PurchaseOrder của bạn chưa có cột user_id
                 'status'       => PurchaseOrder::STATUS_PENDING,
                 'note'         => $request->note,
-                'expected_at'  => $request->expected_at,
+                
+                // --- THAY ĐỔI TẠI ĐÂY ---
+                // Thay vì lấy $request->expected_at, ta dùng hàm now() để lấy thời gian hiện tại
+                'expected_at'  => now(), 
+                
                 'total_amount' => 0, 
             ]);
 
@@ -143,7 +149,7 @@ class PurchaseOrderController extends Controller
                     'product_variant_id' => $item['variant_id'],
                     'quantity'           => $quantity,
                     'import_price'       => $price,
-                    'subtotal'           => $total, // <-- ĐÃ SỬA: Dùng 'subtotal' thay vì 'total' cho đúng DB
+                    'subtotal'           => $total,
                 ]);
 
                 $grandTotal += $total;
