@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\FlashSale;
 
 class Product extends Model
 {
@@ -96,8 +97,7 @@ class Product extends Model
     // =========================================================================
     // ACCESSORS (Hàm phụ trợ)
     // =========================================================================
-    
-    // Đếm số lượng biến thể (Để hiển thị "Available in 5 sizes" ngoài view)
+// Đếm số lượng biến thể (Để hiển thị "Available in 5 sizes" ngoài view)
     // Hoặc có thể dùng withCount('variants') trong controller
 
     /**
@@ -119,6 +119,20 @@ class Product extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'published');
+    }
+
+    // === THÊM ĐOẠN NÀY VÀO CUỐI FILE PRODUCT.PHP ===
+    /**
+     * Lấy chương trình Flash Sale đang chạy
+     * Giả định bảng trung gian tên là 'flash_sale_items' (dựa trên URL admin của bạn)
+     */
+    public function flashSale()
+    {
+        // Lưu ý: Đảm bảo bạn đã có Model FlashSale (use App\Models\FlashSale;)
+        return $this->belongsToMany(FlashSale::class, 'flash_sale_items', 'product_id', 'flash_sale_id')
+                    ->where('end_time', '>=', now())   // Chưa kết thúc
+                    ->where('start_time', '<=', now()) // Đã bắt đầu
+                    ->withPivot('price', 'quantity');  // Lấy thêm cột giá sale và số lượng
     }
 
 }

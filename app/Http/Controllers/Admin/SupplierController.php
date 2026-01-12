@@ -26,9 +26,7 @@ class SupplierController extends Controller
             $keyword = trim($request->keyword);
             $query->where(function($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('code', 'like', "%{$keyword}%")
-                  ->orWhere('phone', 'like', "%{$keyword}%")
-                  ->orWhere('email', 'like', "%{$keyword}%");
+                  ->orWhere('phone', 'like', "%{$keyword}%");
             });
         }
 

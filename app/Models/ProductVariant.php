@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\FlashSale;
 
 class ProductVariant extends Model
 {
@@ -99,7 +100,7 @@ class ProductVariant extends Model
     // 2. Định nghĩa quan hệ 'size' để Controller gọi được with('size')
     public function size()
     {
-        // Trả về AttributeValue có loại là 'size' hoặc 'kích thước'
+// Trả về AttributeValue có loại là 'size' hoặc 'kích thước'
         return $this->belongsToMany(AttributeValue::class, 'variant_attribute_values', 'product_variant_id', 'attribute_value_id')
                     ->whereHas('attribute', function ($query) {
                         $query->where('code', 'size')
@@ -141,5 +142,14 @@ class ProductVariant extends Model
     {
         // Ưu tiên lấy giá sale, nếu bằng 0 thì lấy giá gốc
         return $this->sale_price > 0 ? $this->sale_price : $this->original_price;
+    }
+
+    public function flashSale()
+    {
+        // Liên kết qua cột product_variant_id
+        return $this->belongsToMany(FlashSale::class, 'flash_sale_items', 'product_variant_id', 'flash_sale_id')
+                    ->where('end_time', '>=', now())
+                    ->where('start_time', '<=', now())
+                    ->withPivot('price', 'quantity');
     }
 }

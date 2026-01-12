@@ -74,7 +74,7 @@
                         <th class="px-4 py-3 text-right">Cập nhật nhanh</th>
                     </tr>
                 </thead>
-                <<tbody class="bg-white divide-y divide-gray-100">
+                <tbody class="bg-white divide-y divide-gray-100">
                     @forelse($variants as $variant)
                     <tr class="text-gray-700 hover:bg-gray-50 transition group">
                         
@@ -95,7 +95,7 @@
                                             src="{{ $imgUrl }}" 
                                             alt="{{ $variant->product->name ?? 'SP' }}" 
                                             loading="lazy" 
-                                            onerror="this.src='{{ asset('images/default.png') }}'" /> {{-- Fallback nếu ảnh 404 --}}
+                                            onerror="this.onerror=null; this.src='https://placehold.co/50x50?text=No+Img';"/> {{-- Fallback nếu ảnh 404 --}}
                                 </div>
                                 <div>
                                     <p class="font-semibold text-gray-800 line-clamp-1 w-48" title="{{ $variant->product->name ?? '' }}">

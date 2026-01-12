@@ -1,11 +1,44 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Đơn hàng #' . $order->order_code)
+@section('title', 'Chi tiết đơn hàng #' . $order->order_code)
 
 @section('content')
+{{-- 
+    1. CẤU HÌNH GLOBAL CHO VIEW
+--}}
+@php
+    // Danh sách trạng thái & hiển thị
+    $statusConfig = [
+        'pending'    => ['label' => 'Chờ xử lý',      'class' => 'bg-yellow-100 text-yellow-700 border-yellow-200', 'icon' => '🟡'],
+        'processing' => ['label' => 'Đang đóng gói',  'class' => 'bg-blue-100 text-blue-700 border-blue-200',       'icon' => '🔵'],
+        'shipping'   => ['label' => 'Đang giao hàng', 'class' => 'bg-purple-100 text-purple-700 border-purple-200', 'icon' => '🟣'],
+        'completed'  => ['label' => 'Hoàn thành',     'class' => 'bg-emerald-100 text-emerald-700 border-emerald-200', 'icon' => '🟢'],
+        'cancelled'  => ['label' => 'Đã hủy',         'class' => 'bg-rose-100 text-rose-700 border-rose-200',       'icon' => '🔴'],
+        'returned'   => ['label' => 'Trả hàng',       'class' => 'bg-slate-100 text-slate-700 border-slate-200',     'icon' => '↩️'],
+    ];
+
+    // [CẬP NHẬT] Quy tắc chuyển đổi trạng thái (Đã xóa 'returned' khỏi shipping/completed)
+    $transitions = [
+        'pending'    => ['processing', 'cancelled'],             // Chờ xử lý -> Đóng gói hoặc Hủy
+        'processing' => ['shipping', 'cancelled'],               // Đóng gói -> Giao hàng hoặc Hủy
+        'shipping'   => ['completed', 'cancelled'],              // Giao hàng -> Xong hoặc Hủy (Bỏ Returned)
+        'completed'  => [],                                      // KHÓA
+        'cancelled'  => [],                                      // KHÓA
+        'returned'   => [],                                      // KHÓA
+    ];
+
+    $currentStatus = $order->status;
+    
+    // Kiểm tra trạng thái cuối (Terminal State)
+    $isOrderLocked = empty($transitions[$currentStatus]);
+    
+    // Kiểm tra thanh toán
+    $isPaid = $order->payment_status === 'paid';
+@endphp
+
 <div class="container px-6 mx-auto mb-20 fade-in">
     
-    {{-- 1. HEADER & ACTIONS --}}
+    {{-- 2. HEADER & ACTIONS --}}
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pt-6">
         <div class="flex items-center gap-4">
             <a href="{{ route('admin.orders.index') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm">
@@ -15,27 +48,9 @@
                 <h1 class="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
                     #{{ $order->order_code }}
                     
-                    {{-- Status Badge --}}
-                    @php
-                        $statusLabels = [
-                            'pending'    => 'Chờ xử lý',
-                            'processing' => 'Đang đóng gói',
-                            'shipping'   => 'Đang giao hàng',
-                            'completed'  => 'Hoàn thành',
-                            'cancelled'  => 'Đã hủy',
-                            'returned'   => 'Trả hàng'
-                        ];
-                        $statusClasses = [
-                            'pending'    => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                            'processing' => 'bg-blue-100 text-blue-700 border-blue-200',
-                            'shipping'   => 'bg-purple-100 text-purple-700 border-purple-200',
-                            'completed'  => 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                            'cancelled'  => 'bg-rose-100 text-rose-700 border-rose-200',
-                            'returned'   => 'bg-slate-100 text-slate-700 border-slate-200',
-                        ];
-                    @endphp
-                    <span id="order-status-badge" class="px-3 py-1 rounded-lg text-sm font-bold border {{ $statusClasses[$order->status] ?? '' }}">
-                        {{ $statusLabels[$order->status] ?? ucfirst($order->status) }}
+                    {{-- Status Badge (Sử dụng config ở trên) --}}
+                    <span id="order-status-badge" class="px-3 py-1 rounded-lg text-sm font-bold border {{ $statusConfig[$currentStatus]['class'] ?? 'bg-gray-100' }}">
+                        {{ $statusConfig[$currentStatus]['label'] ?? $currentStatus }}
                     </span>
                 </h1>
                 <p class="text-sm text-slate-500 mt-1 flex items-center gap-2">
@@ -70,7 +85,7 @@
         {{-- LEFT COLUMN: ITEMS & TIMELINE --}}
         <div class="lg:col-span-2 space-y-8">
             
-            {{-- 2. ORDER ITEMS --}}
+            {{-- 3. ORDER ITEMS --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                     <h3 class="font-bold text-slate-800 flex items-center gap-2">
@@ -94,7 +109,7 @@
                             <tr class="hover:bg-slate-50/50 transition-colors">
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-4">
-                                        {{-- Ảnh sản phẩm (Fallback) --}}
+                                        {{-- Ảnh sản phẩm (Fallback logic) --}}
                                         <div class="w-14 h-14 rounded-lg border border-slate-100 bg-white p-0.5 shadow-sm flex-shrink-0 overflow-hidden">
                                             @php
                                                 $imgUrl = 'https://placehold.co/100x100?text=No+Img';
@@ -157,7 +172,7 @@
                 </div>
             </div>
 
-            {{-- 3. TIMELINE --}}
+            {{-- 4. TIMELINE --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2">
                     <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Lịch sử đơn hàng
@@ -192,82 +207,73 @@
         {{-- RIGHT COLUMN: ACTIONS & INFO --}}
         <div class="lg:col-span-1 space-y-8">
             
-            
-            {{-- 4. UPDATE STATUS FORM --}}
+            {{-- 5. UPDATE STATUS FORM --}}
             <div class="bg-white rounded-2xl shadow-md shadow-indigo-500/10 border border-slate-200 overflow-hidden relative">
                 <div class="h-1 bg-indigo-600 w-full absolute top-0 left-0"></div>
                 <div class="p-6">
                     <h3 class="font-bold text-slate-800 mb-4">Cập nhật trạng thái</h3>
                     
-                    @php
-                        // 1. ĐỊNH NGHĨA DANH SÁCH ĐẦY ĐỦ
-                        $allStatuses = [
-                            'pending'    => '🟡 Chờ xử lý',
-                            'processing' => '🔵 Đang đóng gói',
-                            'shipping'   => '🟣 Đang giao hàng',
-                            'completed'  => '🟢 Hoàn thành',
-                            'cancelled'  => '🔴 Hủy đơn hàng',
-                            'returned'   => '↩️ Trả hàng',
-                        ];
-
-                        // 2. ĐỊNH NGHĨA QUY TẮC CHUYỂN ĐỔI (Logic)
-                        $allowedTransitions = [
-                            'pending'    => ['processing', 'cancelled'],           
-                            'processing' => ['shipping', 'cancelled'],             
-                            'shipping'   => ['completed', 'returned', 'cancelled'], 
-                            'completed'  => [], // Kết thúc                                   
-                            'cancelled'  => [], // Kết thúc                                   
-                            'returned'   => [], // Kết thúc                                   
-                        ];
-
-                        $currentStatus = $order->status;
-                        
-                        // Kiểm tra xem đơn hàng có bị khóa hoàn toàn không (đã xong/hủy/trả)
-                        $isOrderLocked = empty($allowedTransitions[$currentStatus]); 
-                        
-                        // Kiểm tra thanh toán
-                        $isPaid = $order->payment_status === 'paid';
-                    @endphp
-
-                    {{-- Thông báo nếu đơn hàng đã kết thúc --}}
+                    {{-- Thông báo và Gợi ý --}}
                     @if($isOrderLocked)
                         <div class="p-3 mb-4 bg-slate-100 text-slate-500 text-xs rounded-lg border border-slate-200 flex items-start gap-2">
                             <i class="fa-solid fa-lock mt-0.5"></i>
-                            Đơn hàng đã kết thúc ở trạng thái <strong>{{ $allStatuses[$currentStatus] }}</strong>.
+                            <div>
+                                Đơn hàng đã kết thúc ở trạng thái <strong class="text-slate-700">{{ $statusConfig[$currentStatus]['label'] }}</strong>.
+                                <br>Không thể thay đổi.
+                            </div>
                         </div>
+                    @else
+                        {{-- Gợi ý bước tiếp theo --}}
+                        @if(!empty($transitions[$currentStatus]))
+                        <div class="mb-4 text-xs text-indigo-600 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100 flex gap-2">
+                            <i class="fa-regular fa-lightbulb mt-0.5"></i>
+                            <div>
+                                <span class="font-bold">Gợi ý tiếp theo:</span>
+                                @foreach($transitions[$currentStatus] as $next)
+                                     {{ $statusConfig[$next]['label'] }}@if(!$loop->last), @endif
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                     @endif
 
                     <form action="{{ route('admin.orders.update_status', $order->id) }}" method="POST" class="space-y-4">
                         @csrf
                         @method('PUT')
                         
-                        {{-- A. SELECT TRẠNG THÁI ĐƠN HÀNG --}}
+                        {{-- A. SELECT TRẠNG THÁI --}}
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Trạng thái đơn hàng</label>
-                            <select name="status" id="select-status" 
-                                    class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2.5 font-medium text-slate-700 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                                    {{ $isOrderLocked ? 'disabled' : '' }}>
-                                
-                                @foreach($allStatuses as $key => $label)
-                                    @php
-                                        // Logic kiểm tra từng option
-                                        $isCurrent = $key === $currentStatus;
-                                        // Được phép chọn nếu: Là chính nó HOẶC nằm trong danh sách cho phép
-                                        $isAllowed = $isCurrent || in_array($key, $allowedTransitions[$currentStatus] ?? []);
-                                    @endphp
+                            <div class="relative">
+                                <select name="status" id="select-status" 
+                                        class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2.5 pl-3 pr-8 font-medium text-slate-700 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                        {{ $isOrderLocked ? 'disabled' : '' }}>
+                                    
+                                    @foreach($statusConfig as $key => $config)
+                                        @php
+                                            // [MỚI] Ẩn hoàn toàn option "Trả hàng" nếu đơn hàng hiện tại không phải là trả hàng
+                                            if ($key === 'returned' && $currentStatus !== 'returned') {
+                                                continue; 
+                                            }
 
-                                    <option value="{{ $key }}" 
-                                            {{ $isCurrent ? 'selected' : '' }} 
-                                            {{ !$isAllowed ? 'disabled' : '' }}
-                                            class="{{ !$isAllowed ? 'bg-slate-100 text-slate-400' : '' }}">
-                                        {{ $label }} {{ $isCurrent ? '(Hiện tại)' : '' }}
-                                    </option>
-                                @endforeach
+                                            // 1. Kiểm tra logic Disable
+                                            $isCurrent = ($key === $currentStatus);
+                                            // Cho phép chọn nếu là status hiện tại HOẶC nằm trong danh sách chuyển đổi cho phép
+                                            $isAllowed = $isCurrent || in_array($key, $transitions[$currentStatus] ?? []);
+                                        @endphp
 
-                            </select>
-                            @if(!$isOrderLocked)
-                                <p class="text-[10px] text-slate-400 mt-1 italic">* Các trạng thái không hợp lệ đã bị khóa.</p>
-                            @endif
+                                        <option value="{{ $key }}" 
+                                                {{ $isCurrent ? 'selected' : '' }} 
+                                                {{ !$isAllowed ? 'disabled' : '' }}
+                                                class="{{ !$isAllowed ? 'bg-slate-100 text-slate-400' : 'font-bold text-slate-700' }}">
+                                            
+                                            {{ $config['icon'] }} {{ $config['label'] }} 
+                                            @if($isCurrent) (Hiện tại) @endif
+                                            @if(!$isAllowed && !$isCurrent) (Không khả dụng) @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
 
                         {{-- B. SELECT THANH TOÁN --}}
@@ -277,9 +283,11 @@
                                     class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2.5 font-medium text-slate-700 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                                     {{ $isOrderLocked ? 'disabled' : '' }}>
                                 
-                                {{-- Option: Chưa thanh toán (Khóa nếu đã thanh toán) --}}
-                                <option value="unpaid" {{ $order->payment_status == 'unpaid' ? 'selected' : '' }} {{ $isPaid ? 'disabled' : '' }}>
-                                    Chưa thanh toán
+                                {{-- Option: Chưa thanh toán (Khóa nếu đã Paid) --}}
+                                <option value="unpaid" 
+                                        {{ $order->payment_status == 'unpaid' ? 'selected' : '' }} 
+                                        {{ $isPaid ? 'disabled' : '' }}>
+                                    ⏳ Chưa thanh toán
                                 </option>
                                 
                                 {{-- Option: Đã thanh toán --}}
@@ -289,32 +297,34 @@
                                 
                                 {{-- Option: Hoàn tiền (Chỉ cho phép chọn nếu đơn bị Hủy hoặc Trả) --}}
                                 @php
-                                    // Chỉ cho phép hoàn tiền nếu trạng thái hiện tại là Cancelled hoặc Returned
                                     $allowRefund = in_array($currentStatus, ['cancelled', 'returned']);
                                 @endphp
-                                <option value="refunded" {{ $order->payment_status == 'refunded' ? 'selected' : '' }} {{ !$allowRefund && $order->payment_status != 'refunded' ? 'disabled' : '' }}>
-                                    ↩️ Hoàn tiền
+                                <option value="refunded" 
+                                        {{ $order->payment_status == 'refunded' ? 'selected' : '' }} 
+                                        {{ !$allowRefund && $order->payment_status != 'refunded' ? 'disabled' : '' }}
+                                        class="{{ !$allowRefund ? 'bg-slate-100 text-slate-400' : '' }}">
+                                    ↩️ Hoàn tiền {{ !$allowRefund ? '(Chỉ khi Hủy/Trả)' : '' }}
                                 </option>
 
                             </select>
                             
                             @if($isPaid && !$isOrderLocked)
-                                <p class="text-[10px] text-emerald-600 mt-1 flex items-center gap-1">
-                                    <i class="fa-solid fa-check-circle"></i> Đã thanh toán (Không thể hoàn tác).
+                                <p class="text-[10px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
+                                    <i class="fa-solid fa-check-circle"></i> Đã thanh toán (Không thể hoàn tác về chưa thanh toán).
                                 </p>
                             @endif
                         </div>
 
                         @if(!$isOrderLocked)
                             <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <i class="fa-solid fa-floppy-disk"></i> Lưu thay đổi
+                                <i class="fa-solid fa-floppy-disk"></i> Cập nhật
                             </button>
                         @endif
                     </form>
                 </div>
             </div>
 
-            {{-- 5. PAYMENT INFO --}}
+            {{-- 6. PAYMENT INFO --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h3 class="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100 flex items-center gap-2">
                     <i class="fa-regular fa-credit-card text-indigo-500"></i> Thông tin thanh toán
@@ -351,7 +361,7 @@
                 </div>
             </div>
 
-            {{-- 6. CUSTOMER INFO --}}
+            {{-- 7. CUSTOMER INFO --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h3 class="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100 flex items-center gap-2">
                     <i class="fa-solid fa-user-circle text-indigo-500"></i> Khách hàng
@@ -359,13 +369,10 @@
                 
                 <div class="flex items-center gap-4 mb-6">
                     <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl font-bold text-indigo-600 uppercase">
-                        {{-- Lấy chữ cái đầu của tên người nhận thực tế --}}
                         {{ substr($order->receiver_name, 0, 1) }}
                     </div>
                     <div>
-                        {{-- SỬA: Dùng Accessor receiver_name --}}
                         <div class="font-bold text-slate-800">{{ $order->receiver_name }}</div>
-                        
                         <div class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded inline-block mt-1">
                             {{ $order->user_id ? 'Thành viên' : 'Khách vãng lai' }}
                         </div>
@@ -377,7 +384,6 @@
                         <div class="w-6 flex-shrink-0 flex justify-center text-slate-400"><i class="fa-solid fa-phone"></i></div>
                         <div>
                             <p class="text-xs text-slate-400 font-bold uppercase">Điện thoại</p>
-                            {{-- SỬA: Dùng Accessor receiver_phone --}}
                             <p class="font-medium text-slate-700">{{ $order->receiver_phone }}</p>
                         </div>
                     </div>
@@ -385,7 +391,6 @@
                         <div class="w-6 flex-shrink-0 flex justify-center text-slate-400"><i class="fa-solid fa-location-dot"></i></div>
                         <div>
                             <p class="text-xs text-slate-400 font-bold uppercase">Địa chỉ giao hàng</p>
-                            {{-- SỬA: Dùng Accessor full_address --}}
                             <p class="font-medium text-slate-700 leading-relaxed">
                                 {{ $order->full_address }}
                             </p>
@@ -394,7 +399,7 @@
                 </div>
             </div>
 
-            {{-- 7. NOTE --}}
+            {{-- 8. NOTE --}}
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
                     <i class="fa-solid fa-note-sticky text-amber-500"></i> Ghi chú
@@ -412,7 +417,7 @@
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/laravel-echo/dist/echo.iife.js"></script>
 <script>
-    // --- 1. KHỞI TẠO ECHO ---
+    // --- 1. SETUP ECHO ---
     const echo = new Echo({
         broadcaster: 'pusher',
         key: '{{ env('PUSHER_APP_KEY') }}',
@@ -422,22 +427,22 @@
 
     const orderId = {{ $order->id }};
 
-    // --- 2. LẮNG NGHE KÊNH RIÊNG CỦA ĐƠN HÀNG ---
+    // --- 2. LISTEN REALTIME EVENTS ---
     echo.private(`orders.${orderId}`)
         .listen('OrderStatusUpdated', (data) => {
             console.log('Realtime Update:', data);
 
-            // A. Cập nhật Badge Trạng Thái Đơn Hàng (Header)
+            // A. Update Status Badge (Header)
             const statusBadge = document.getElementById('order-status-badge');
             if (statusBadge && data.status) {
-                // Map trạng thái sang tiếng Việt và Class màu
+                // Map lại class giống PHP config để đồng bộ màu sắc
                 const statusMap = {
-                    'pending':    { label: 'Chờ xử lý',    class: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-                    'processing': { label: 'Đang đóng gói',class: 'bg-blue-100 text-blue-700 border-blue-200' },
-                    'shipping':   { label: 'Đang giao hàng',class: 'bg-purple-100 text-purple-700 border-purple-200' },
-                    'completed':  { label: 'Hoàn thành',   class: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-                    'cancelled':  { label: 'Đã hủy',       class: 'bg-rose-100 text-rose-700 border-rose-200' },
-                    'returned':   { label: 'Trả hàng',     class: 'bg-slate-100 text-slate-700 border-slate-200' }
+                    'pending':    { label: 'Chờ xử lý',      class: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+                    'processing': { label: 'Đang đóng gói',  class: 'bg-blue-100 text-blue-700 border-blue-200' },
+                    'shipping':   { label: 'Đang giao hàng', class: 'bg-purple-100 text-purple-700 border-purple-200' },
+                    'completed':  { label: 'Hoàn thành',     class: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+                    'cancelled':  { label: 'Đã hủy',         class: 'bg-rose-100 text-rose-700 border-rose-200' },
+                    'returned':   { label: 'Trả hàng',       class: 'bg-slate-100 text-slate-700 border-slate-200' }
                 };
 
                 const config = statusMap[data.status] || { label: data.status, class: 'bg-gray-100' };
@@ -445,7 +450,7 @@
                 statusBadge.className = `px-3 py-1 rounded-lg text-sm font-bold border ${config.class}`;
             }
 
-            // B. Cập nhật Badge Thanh Toán (Sidebar)
+            // B. Update Payment Badge
             const paymentBadge = document.getElementById('payment-status-badge');
             if (paymentBadge && data.payment_status) {
                 const paymentMap = {
@@ -459,7 +464,7 @@
                 paymentBadge.className = `font-bold text-sm px-2 py-1 rounded border ${config.class}`;
             }
 
-            // C. Thêm dòng Lịch sử mới vào Timeline
+            // C. Add Timeline Item
             if (data.history) {
                 const timeline = document.getElementById('order-timeline');
                 if (timeline) {
@@ -480,10 +485,11 @@
                 }
             }
 
-            // D. Reload trang nếu đơn hàng bị khóa (Để disable form input)
-            if (['completed', 'cancelled', 'returned'].includes(data.status)) {
-                setTimeout(() => location.reload(), 2000); // Reload sau 2s để user kịp nhìn thấy thông báo
-            }
+            // D. Tự động reload trang sau 1.5s để cập nhật Logic Form (Disable/Enable các option mới)
+            // Vì khi đổi trạng thái, danh sách trạng thái tiếp theo hợp lệ sẽ thay đổi.
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
         });
 </script>
 @endpush

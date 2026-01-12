@@ -50,9 +50,9 @@ class ReviewController extends Controller
         }
 
         // ----------------------------
-        // Lọc theo trạng thái duyệt
+        // Lọc theo trạng thái duyệt (ĐÃ FIX)
         // ----------------------------
-        if ($request->filled('status') && $request->status !== 'all') {
+        if ($request->has('status') && $request->status !== null && $request->status !== 'all') {
             $query->where('is_approved', $request->status);
         }
 

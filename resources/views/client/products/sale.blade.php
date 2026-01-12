@@ -37,18 +37,24 @@
                     {{-- Chỉ hiển thị nếu có biến thể --}}
                     @if($variant)
                         @php
-                            // Lấy giá chuẩn từ bảng product_variants
                             $priceOriginal = $variant->original_price; 
                             $priceSale = $variant->sale_price;         
                             
-                            // Tính % giảm giá
+                            // --- SỬA ĐOẠN NÀY ---
+                            // Gọi flashSale từ $variant thay vì $product
+                            $flashSaleItem = $variant->flashSale->first(); 
+
+                            if ($flashSaleItem && $flashSaleItem->pivot->price > 0) {
+                                $priceSale = $flashSaleItem->pivot->price;
+                            }
+                            // --------------------
+
                             $discount = 0;
-                            if($priceOriginal > 0) {
+                            if($priceOriginal > 0 && $priceSale < $priceOriginal) {
                                 $discount = round((($priceOriginal - $priceSale) / $priceOriginal) * 100);
                             }
                         @endphp
-
-                        <div class="bg-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group relative border border-red-100 flex flex-col h-full">
+<div class="bg-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group relative border border-red-100 flex flex-col h-full">
                             
                             {{-- Badge % Giảm giá --}}
                             <div class="absolute top-0 right-0 bg-red-600 text-white text-sm font-bold px-3 py-1 rounded-bl-xl z-20 shadow-md">
@@ -87,7 +93,7 @@
                                 <div class="mt-auto">
                                     <div class="flex items-end flex-wrap gap-2 mb-2">
                                         <span class="text-red-600 font-extrabold text-2xl">
-                                            {{ number_format($priceSale) }}<span class="text-sm underline">đ</span>
+{{ number_format($priceSale) }}<span class="text-sm underline">đ</span>
                                         </span>
                                         <span class="text-slate-400 text-sm line-through mb-1">
                                             {{ number_format($priceOriginal) }}đ

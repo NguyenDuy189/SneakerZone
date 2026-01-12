@@ -25,7 +25,7 @@
                         <i class="fa-solid fa-magnifying-glass text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
                     </div>
                     <input type="text" name="keyword" value="{{ request('keyword') }}" 
-                        placeholder="Tìm tên, mã, số điện thoại hoặc email..." 
+                        placeholder="Tìm tên hoặc số điện thoại..." 
                         class="pl-10 pr-4 py-2.5 w-full border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm text-slate-700">
                 </div>
 

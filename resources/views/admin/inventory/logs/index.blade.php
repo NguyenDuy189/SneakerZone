@@ -53,7 +53,7 @@
                     </button>
 
                     @if(request()->hasAny(['keyword','type','date']))
-                        <a href="{{ route('admin.inventory.logs') }}"
+                        <a href="{{ route('admin.inventory.logs.index') }}"
                             class="px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50
                                    text-rose-500 flex items-center justify-center">
                             <i class="fa-solid fa-rotate-left"></i>

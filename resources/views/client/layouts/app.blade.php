@@ -304,10 +304,10 @@
                 <div>
                     <h4 class="font-bold text-lg mb-6 uppercase tracking-wider">Cửa hàng</h4>
                     <ul class="space-y-3 text-sm text-slate-400">
-                        <li><a href="{{ route('page.about') }}" class="hover:text-white transition-colors">Về chúng tôi</a></li>
-                        <li><a href="{{ route('page.contact') }}" class="hover:text-white transition-colors">Liên hệ</a></li>
-                        <li><a href="{{ route('page.stores') }}" class="hover:text-white transition-colors">Tìm cửa hàng</a></li>
-                        <li><a href="{{ route('page.news') }}" class="hover:text-white transition-colors">Tin tức</a></li>
+                        <li><a href="{{ route('client.page.about') }}" class="hover:text-white transition-colors">Về chúng tôi</a></li>
+                        <li><a href="{{ route('client.page.contact') }}" class="hover:text-white transition-colors">Liên hệ</a></li>
+                        <li><a href="{{ route('client.page.stores') }}" class="hover:text-white transition-colors">Tìm cửa hàng</a></li>
+                        <li><a href="{{ route('client.page.news') }}" class="hover:text-white transition-colors">Tin tức</a></li>
                     </ul>
                     </div>
 
@@ -315,10 +315,10 @@
                     <div>
                     <h4 class="font-bold text-lg mb-6 uppercase tracking-wider">Hỗ trợ</h4>
                     <ul class="space-y-3 text-sm text-slate-400">
-                        <li><a href="{{ route('page.buying-guide') }}" class="hover:text-white transition-colors">Hướng dẫn mua hàng</a></li>
-                        <li><a href="{{ route('page.return-policy') }}" class="hover:text-white transition-colors">Chính sách đổi trả</a></li>
-                        <li><a href="{{ route('page.privacy-policy') }}" class="hover:text-white transition-colors">Chính sách bảo mật</a></li>
-                        <li><a href="{{ route('page.tracking') }}" class="hover:text-white transition-colors">Tra cứu đơn hàng</a></li>
+                        <li><a href="{{ route('client.page.buying-guide') }}" class="hover:text-white transition-colors">Hướng dẫn mua hàng</a></li>
+                        <li><a href="{{ route('client.page.return-policy') }}" class="hover:text-white transition-colors">Chính sách đổi trả</a></li>
+                        <li><a href="{{ route('client.page.privacy-policy') }}" class="hover:text-white transition-colors">Chính sách bảo mật</a></li>
+                        <li><a href="{{ route('client.page.tracking') }}" class="hover:text-white transition-colors">Tra cứu đơn hàng</a></li>
                     </ul>
                 </div>
 

@@ -10,81 +10,73 @@ use Illuminate\Support\Facades\Gate;
 
 class InventoryLogController extends Controller
 {
+    /**
+     * Danh sách lịch sử kho
+     */
     public function index(Request $request)
     {
-        // Quyền: nếu bạn đã cấu hình Gate 'inventory.view' thì kiểm tra, nếu không, xóa dòng này.
+        // 1. Kiểm tra quyền (Nếu có sử dụng Gate)
         if (function_exists('Gate') && Gate::allows('inventory.view') === false) {
             abort(403, 'Bạn không có quyền truy cập danh sách lịch sử kho.');
         }
 
-        // --- BUILD ALLOWED TYPES (AN TOÀN) ---
-        $allowedTypes = [];
-        // Nếu model định nghĩa constants, sử dụng chúng
-        if (defined(InventoryLog::class . '::TYPE_IMPORT')) {
-            $allowedTypes[] = constant(InventoryLog::class . '::TYPE_IMPORT');
-        }
-        if (defined(InventoryLog::class . '::TYPE_EXPORT')) {
-            $allowedTypes[] = constant(InventoryLog::class . '::TYPE_EXPORT');
-        }
-        if (defined(InventoryLog::class . '::TYPE_ADJUST')) {
-            $allowedTypes[] = constant(InventoryLog::class . '::TYPE_ADJUST');
-        }
+        // 2. ĐỊNH NGHĨA CÁC LOẠI GIAO DỊCH (Quan trọng: Phải khớp với View)
+        // View đang gửi lên: import, sale, return, check
+        $allowedTypes = [
+            'import', // Nhập hàng
+            'sale',   // Bán hàng
+            'return', // Trả hàng/Hoàn hàng
+            'check',  // Kiểm kê
+            'export', // Xuất kho khác (nếu có dùng)
+            'adjust'  // Điều chỉnh khác (nếu có dùng)
+        ];
 
-        // Nếu không có constant nào, fallback sang bộ mặc định
-        if (empty($allowedTypes)) {
-            $allowedTypes = ['import', 'export', 'adjust'];
-        }
-
-        // Nếu có allowedTypes thì rule in, ngược lại fallback rule an toàn
-        $typeRule = !empty($allowedTypes) ? ['nullable', Rule::in($allowedTypes)] : ['nullable', 'string', 'max:50'];
-
-        // VALIDATE input filters (rất chặt)
+        // 3. VALIDATE DỮ LIỆU ĐẦU VÀO
         $request->validate([
-            'keyword'     => ['nullable', 'string', 'max:150'],
-            'type'        => $typeRule,
-            'date'        => ['nullable', 'date'],
-            'from'        => ['nullable', 'date'],
-            'to'          => ['nullable', 'date', 'after_or_equal:from'],
-            'user_id'     => ['nullable', 'integer', 'exists:users,id'],
-            'variant_id'  => ['nullable', 'integer', 'exists:product_variants,id'],
-            'reference_id'=> ['nullable', 'integer'],
-            'per_page'    => ['nullable', 'integer', 'in:10,20,50,100'],
+            'keyword'      => ['nullable', 'string', 'max:150'],
+            'type'         => ['nullable', Rule::in($allowedTypes)], // Chỉ cho phép các loại đã định nghĩa
+            'date'         => ['nullable', 'date'],
+            'from'         => ['nullable', 'date'],
+            'to'           => ['nullable', 'date', 'after_or_equal:from'],
+            'user_id'      => ['nullable', 'integer', 'exists:users,id'],
+            'variant_id'   => ['nullable', 'integer', 'exists:product_variants,id'],
+            'reference_id' => ['nullable', 'integer'],
+            'per_page'     => ['nullable', 'integer', 'in:10,20,50,100'],
         ], [
-            'keyword.max' => 'Từ khóa tìm kiếm tối đa 150 ký tự.',
-            'type.in'     => 'Loại giao dịch không hợp lệ.',
-            'date.date'   => 'Ngày không hợp lệ.',
+            'type.in' => 'Loại giao dịch không hợp lệ.',
             'to.after_or_equal' => 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.',
-            'user_id.exists' => 'Người dùng không tồn tại.',
-            'variant_id.exists' => 'Phiên bản sản phẩm không tồn tại.',
-            'per_page.in' => 'Giá trị phân trang không hợp lệ.',
         ]);
 
-        // Build query với eager load
+        // 4. XÂY DỰNG QUERY
+        // Eager load: variant (kèm product), user để tránh N+1 query
         $query = InventoryLog::with(['variant.product', 'user'])->latest('id');
 
-        // Keyword: tìm theo SKU hoặc tên sản phẩm (safe: trim + limit)
+        // --- Lọc theo từ khóa (Tên SP hoặc SKU) ---
         if ($request->filled('keyword')) {
-            $keyword = mb_substr(trim($request->keyword), 0, 150);
+            $keyword = trim($request->keyword);
             $query->where(function ($q) use ($keyword) {
+                // Tìm theo SKU biến thể
                 $q->whereHas('variant', function ($q2) use ($keyword) {
                     $q2->where('sku', 'like', "%{$keyword}%");
-                })->orWhereHas('variant.product', function ($q3) use ($keyword) {
+                })
+                // Hoặc tìm theo Tên sản phẩm cha
+                ->orWhereHas('variant.product', function ($q3) use ($keyword) {
                     $q3->where('name', 'like', "%{$keyword}%");
                 });
             });
         }
 
-        // Type
+        // --- Lọc theo loại giao dịch (Type) ---
         if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
 
-        // Single date
+        // --- Lọc theo ngày cụ thể ---
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->date);
         }
 
-        // Date range
+        // --- Lọc theo khoảng thời gian (Từ ngày - Đến ngày) ---
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->from);
         }
@@ -92,52 +84,50 @@ class InventoryLogController extends Controller
             $query->whereDate('created_at', '<=', $request->to);
         }
 
-        // User filter
+        // --- Các bộ lọc ID khác ---
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
         }
-
-        // Variant filter (product_variant_id)
         if ($request->filled('variant_id')) {
             $query->where('product_variant_id', $request->variant_id);
         }
-
-        // Reference filter (ví dụ PO id / SO id)
         if ($request->filled('reference_id')) {
             $query->where('reference_id', $request->reference_id);
         }
 
-        // Pagination size (validate đã đảm bảo per_page hợp lệ)
-        $perPage = (int) $request->input('per_page', 20);
-        if (!in_array($perPage, [10,20,50,100])) {
-            $perPage = 20;
-        }
-
+        // 5. PHÂN TRANG
+        $perPage = $request->input('per_page', 20);
         $logs = $query->paginate($perPage)->withQueryString();
 
-        // Dữ liệu hỗ trợ view (tiếng Việt)
-        $filterData = [
-            'keyword'     => $request->keyword,
-            'type'        => $request->type,
-            'date'        => $request->date,
-            'from'        => $request->from,
-            'to'          => $request->to,
-            'user_id'     => $request->user_id,
-            'variant_id'  => $request->variant_id,
-            'reference_id'=> $request->reference_id,
-            'per_page'    => $perPage,
+        // 6. CHUẨN BỊ DỮ LIỆU TRẢ VỀ VIEW
+        
+        // Mảng label để hiển thị tiếng Việt đẹp mắt
+        $typeLabels = [
+            'import' => 'Nhập kho',
+            'sale'   => 'Bán hàng',
+            'return' => 'Trả hàng',
+            'check'  => 'Kiểm kê',
+            'export' => 'Xuất kho',
+            'adjust' => 'Điều chỉnh',
         ];
 
-        $typeLabels = [
-            'import'  => 'Nhập kho',
-            'export'  => 'Xuất kho',
-            'adjust'  => 'Điều chỉnh',
+        // Dữ liệu filter để điền lại vào form (re-populate)
+        $filterData = [
+            'keyword'      => $request->keyword,
+            'type'         => $request->type,
+            'date'         => $request->date,
+            'from'         => $request->from,
+            'to'           => $request->to,
+            'user_id'      => $request->user_id,
+            'variant_id'   => $request->variant_id,
+            'reference_id' => $request->reference_id,
+            'per_page'     => $perPage,
         ];
 
         return view('admin.inventory.logs.index', [
-            'logs' => $logs,
-            'filters' => $filterData,
-            'typeLabels' => $typeLabels,
+            'logs'         => $logs,
+            'filters'      => $filterData,
+            'typeLabels'   => $typeLabels,
             'allowedTypes' => $allowedTypes,
         ]);
     }
@@ -149,13 +139,10 @@ class InventoryLogController extends Controller
     {
         $log = InventoryLog::with(['variant.product', 'user'])->findOrFail($id);
 
-        // Quyền xem chi tiết (dùng Gate nếu bạn đã định nghĩa)
-        if (function_exists('Gate') && Gate::denies('inventory.view')) {
-            abort(403, 'Bạn không có quyền xem chi tiết lịch sử kho.');
+        if (function_exists('Gate') && Gate::allows('inventory.view') === false) {
+            abort(403, 'Bạn không có quyền xem chi tiết.');
         }
 
-        return view('admin.inventory.logs.show', [
-            'log' => $log
-        ]);
+        return view('admin.inventory.logs.show', compact('log'));
     }
 }

@@ -2,53 +2,51 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
-use App\Models\InventoryLog;
 use App\Models\Order;
 use App\Models\OrderHistory;
 use App\Models\OrderItem;
 use App\Models\ProductVariant;
+use App\Models\InventoryLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
-use Exception;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Exception;
+
+// Sự kiện (Nếu bạn chưa có class này, hãy tạo hoặc comment lại dòng gọi event)
+use App\Events\OrderStatusUpdated;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
-    // Nhóm trạng thái giữ hàng (trừ kho)
+    // --- CẤU HÌNH TRẠNG THÁI ---
+
+    // 1. Nhóm trạng thái "Giữ hàng" (Kho đang bị trừ)
     const STATUS_RESERVED = ['pending', 'processing', 'shipping', 'completed'];
 
-    // Nhóm trạng thái nhả hàng (trả lại kho)
+    // 2. Nhóm trạng thái "Nhả hàng" (Hàng trả về kho)
     const STATUS_RELEASED = ['cancelled', 'returned'];
 
-    // Chuyển đổi trạng thái hợp lệ (State Machine)
+    // 3. Quy tắc chuyển đổi trạng thái (State Machine)
     protected $allowedStatusTransitions = [
-        'pending'    => ['processing', 'cancelled'],
-        'processing' => ['shipping', 'cancelled'],
-        'shipping'   => ['completed', 'returned'],
-        'completed'  => [], // Đã hoàn tất thì không đổi nữa
-        'cancelled'  => [], // Đã hủy thì không đổi nữa (trừ khi có logic khôi phục riêng)
-        'returned'   => [],
-    ];
-
-    protected $allowedPaymentTransitions = [
-        'unpaid'   => ['paid'],
-        'paid'     => ['refunded'],
-        'refunded' => [],
+        'pending'    => ['processing', 'cancelled'],             // Chờ xử lý -> Đóng gói hoặc Hủy
+        'processing' => ['shipping', 'cancelled'],               // Đóng gói -> Giao hàng hoặc Hủy
+        'shipping'   => ['completed', 'cancelled'],              // Giao hàng -> Xong hoặc Hủy (NẾU giao thất bại coi như Hủy)
+        'completed'  => [],                                      // Đã xong -> KẾT THÚC (Admin không được quyền tự ý chuyển sang Trả hàng)
+        'cancelled'  => [],                                      // Đã hủy -> KẾT THÚC
+        'returned'   => [],                                      // Đã trả -> KẾT THÚC
     ];
 
     protected $statusLabels = [
         'pending'    => 'Chờ xử lý',
         'processing' => 'Đang đóng gói',
-        'shipping'   => 'Đang giao hàng',
+        'shipping'   => 'Đang vận chuyển',
         'completed'  => 'Hoàn thành',
         'cancelled'  => 'Đã hủy',
-        'returned'   => 'Trả hàng',
+        'returned'   => 'Đã trả hàng/Hoàn về',
     ];
 
     protected $paymentLabels = [
@@ -58,21 +56,21 @@ class OrderController extends Controller
     ];
 
     /**
-     * Danh sách đơn hàng
+     * 1. DANH SÁCH ĐƠN HÀNG
      */
     public function index(Request $request)
     {
-        // Eager load user để tránh N+1 query, nhưng thông tin hiển thị chính vẫn lấy từ shipping_address
-        $query = Order::with(['user', 'items']);
+        $query = Order::with(['user', 'items']); // Eager loading để giảm query
 
+        // Tìm kiếm nâng cao
         if ($request->filled('keyword')) {
             $keyword = trim($request->keyword);
             $query->where(function($q) use ($keyword) {
                 $q->where('order_code', 'like', "%{$keyword}%")
-                  // Tìm trong JSON: Cú pháp này chỉ chạy trên MySQL 5.7+
+                  // Tìm trong JSON MySQL (Yêu cầu MySQL 5.7+)
                   ->orWhere('shipping_address->contact_name', 'like', "%{$keyword}%")
                   ->orWhere('shipping_address->phone', 'like', "%{$keyword}%")
-                  // Tìm dự phòng trong bảng User nếu thông tin trong JSON bị thiếu
+                  // Tìm User liên quan
                   ->orWhereHas('user', function($subQ) use ($keyword) {
                       $subQ->where('full_name', 'like', "%{$keyword}%")
                            ->orWhere('email', 'like', "%{$keyword}%");
@@ -80,8 +78,19 @@ class OrderController extends Controller
             });
         }
 
-        if ($request->filled('status')) $query->where('status', $request->status);
-        if ($request->filled('payment_status')) $query->where('payment_status', $request->payment_status);
+        // Bộ lọc
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
 
         $orders = $query->latest()->paginate(10)->withQueryString();
 
@@ -89,21 +98,43 @@ class OrderController extends Controller
     }
 
     /**
-     * Tạo đơn hàng (Checkout Admin)
+     * 2. HIỂN THỊ CHI TIẾT
      */
+    public function show($id)
+    {
+        $order = Order::with([
+            'items.variant.product', // Load sâu để lấy ảnh/tên sản phẩm gốc
+            'user', 
+            'histories' => function($q) { $q->latest(); }, // Lịch sử mới nhất lên đầu
+            'histories.user'
+        ])->findOrFail($id);
+
+        return view('admin.orders.show', compact('order'));
+    }
+
+    /**
+     * 3. TẠO ĐƠN HÀNG THỦ CÔNG (ADMIN TẠO)
+     * Lưu ý: Cần mở route 'create' và 'store' trong web.php nếu chưa mở
+     */
+    public function create()
+    {
+        // Logic lấy danh sách sản phẩm để chọn (nếu cần view tạo đơn)
+        // Đây là ví dụ trả về view
+        return view('admin.orders.create'); 
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'contact_name'   => 'required|string|max:255',
-            'phone'          => ['required', 'regex:/^(0)[0-9]{9}$/'],
-            'address'        => 'required|string|max:255',
-            'city'           => 'required|string|max:100',
-            'district'       => 'required|string|max:100',
-            'ward'           => 'required|string|max:100',
-            'payment_method' => ['required', Rule::in(['cod', 'vnpay', 'momo', 'banking'])],
-            'note'           => 'nullable|string|max:500',
-            'items'          => 'required|array|min:1',
-            'items.*.variant_id' => 'required|integer|exists:product_variants,id',
+            'contact_name'       => 'required|string|max:255',
+            'phone'              => ['required', 'regex:/^(0)[0-9]{9}$/'],
+            'address'            => 'required|string',
+            'city'               => 'required|string',
+            'district'           => 'required|string',
+            'ward'               => 'required|string',
+            'payment_method'     => ['required', Rule::in(['cod', 'banking', 'momo', 'vnpay'])],
+            'items'              => 'required|array|min:1',
+            'items.*.variant_id' => 'required|exists:product_variants,id',
             'items.*.quantity'   => 'required|integer|min:1',
         ]);
 
@@ -113,12 +144,17 @@ class OrderController extends Controller
 
         DB::beginTransaction();
         try {
-            $items = collect($request->items)->sortBy('variant_id')->values();
+            // Tính toán tổng tiền
+            $grandTotal = 0;
+            $orderItemsData = [];
+            
+            // Lấy phí ship (Hardcode hoặc lấy từ setting)
+            $shippingFee = 30000; 
 
-            // 1. Tạo Order Header
+            // 1. Tạo Header Order trước
             $order = Order::create([
                 'order_code'      => 'ORD-' . strtoupper(Str::random(10)),
-                'user_id'         => Auth::id() ?? null,
+                'user_id'         => Auth::id(), // Admin tạo, hoặc gán cho user khách
                 'status'          => 'pending',
                 'payment_status'  => 'unpaid',
                 'payment_method'  => $request->payment_method,
@@ -131,87 +167,87 @@ class OrderController extends Controller
                     'ward'         => $request->ward,
                 ],
                 'note'            => $request->note,
-                'shipping_fee'    => 30000, 
-                'total_amount'    => 0,
+                'shipping_fee'    => $shippingFee,
+                'total_amount'    => 0, // Cập nhật sau
             ]);
 
-            $grandTotal = 0;
+            // 2. Xử lý Items & Kho
+            foreach ($request->items as $item) {
+                // Lock row để tránh race condition
+                $variant = ProductVariant::with('product')->lockForUpdate()->find($item['variant_id']);
 
-            // 2. Xử lý từng sản phẩm
-            foreach ($items as $itemData) {
-                $variant = ProductVariant::with('product')->lockForUpdate()->find($itemData['variant_id']);
+                if (!$variant || !$variant->product) {
+                    throw new Exception("Sản phẩm ID {$item['variant_id']} không tồn tại.");
+                }
 
-                if (!$variant || !$variant->product) throw new Exception("Sản phẩm không hợp lệ.");
-                if ($variant->product->trashed()) throw new Exception("Sản phẩm '{$variant->product->name}' đã ngừng kinh doanh.");
-                if ($variant->stock_quantity < $itemData['quantity']) {
-                    throw new Exception("Sản phẩm '{$variant->product->name}' không đủ hàng (Còn: {$variant->stock_quantity}).");
+                // Check tồn kho
+                if ($variant->stock_quantity < $item['quantity']) {
+                    throw new Exception("Sản phẩm {$variant->product->name} (SKU: {$variant->sku}) không đủ hàng. Còn lại: {$variant->stock_quantity}");
                 }
 
                 $price = $variant->sale_price > 0 ? $variant->sale_price : $variant->original_price;
-                $lineTotal = $price * $itemData['quantity'];
+                $lineTotal = $price * $item['quantity'];
+                $grandTotal += $lineTotal;
 
+                // Tạo Order Item
                 OrderItem::create([
                     'order_id'           => $order->id,
                     'product_id'         => $variant->product_id,
                     'product_variant_id' => $variant->id,
                     'product_name'       => $variant->product->name,
                     'sku'                => $variant->sku,
-                    'quantity'           => $itemData['quantity'],
-                    'price'              => $price,
-                    'total'              => $lineTotal,
                     'size'               => $variant->size,
                     'color'              => $variant->color,
+                    'quantity'           => $item['quantity'],
+                    'price'              => $price,
+                    'total'              => $lineTotal,
                 ]);
 
-                // Trừ tồn kho
-                $variant->decrement('stock_quantity', $itemData['quantity']);
+                // Trừ kho
+                $variant->decrement('stock_quantity', $item['quantity']);
 
-                // Ghi log kho
+                // Log kho
                 InventoryLog::create([
                     'product_variant_id' => $variant->id,
                     'user_id'            => Auth::id(),
-                    'change_amount'      => -$itemData['quantity'],
-                    'remaining_stock'    => $variant->stock_quantity,
                     'type'               => 'order_out',
-                    'note'               => 'Xuất kho cho đơn hàng #' . $order->order_code,
+                    'change_amount'      => -$item['quantity'],
+                    'remaining_stock'    => $variant->stock_quantity,
+                    'note'               => "Xuất kho đơn hàng Admin: #{$order->order_code}"
                 ]);
-
-                $grandTotal += $lineTotal;
             }
 
             // Cập nhật tổng tiền
-            $order->update(['total_amount' => $grandTotal + $order->shipping_fee]);
+            $order->update(['total_amount' => $grandTotal + $shippingFee]);
 
-            // Ghi lịch sử đơn hàng
-            $history = OrderHistory::create([
-                'order_id'    => $order->id,
-                'user_id'     => Auth::id(),
-                'action'      => 'created',
-                'description' => 'Đơn hàng được khởi tạo thủ công bởi quản trị viên.',
+            // Ghi lịch sử
+            OrderHistory::create([
+                'order_id' => $order->id,
+                'user_id'  => Auth::id(),
+                'action'   => 'created',
+                'description' => 'Đơn hàng được tạo thủ công bởi quản trị viên.'
             ]);
-            $history->load('user');
 
             DB::commit();
-
-            // --- [REALTIME] Phát sự kiện ---
-            event(new OrderStatusUpdated($order, 'created', $history));
-
-            return redirect()->route('admin.orders.index')
-                ->with('success', 'Đơn hàng #' . $order->order_code . ' đã được tạo thành công!');
+            return redirect()->route('admin.orders.index')->with('success', 'Tạo đơn hàng thành công!');
 
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error("Order Create Error: " . $e->getMessage());
-            return back()->with('error', 'Lỗi tạo đơn hàng: ' . $e->getMessage())->withInput();
+            return back()->with('error', 'Lỗi tạo đơn: ' . $e->getMessage())->withInput();
         }
     }
 
     /**
-     * Cập nhật trạng thái đơn hàng (Logic chính)
+     * 4. CẬP NHẬT TRẠNG THÁI (ADMIN)
+     * Đã chặn quyền chuyển sang 'returned'
+     */
+    /**
+     * 4. CẬP NHẬT TRẠNG THÁI (ADMIN)
+     * Đã bổ sung logic chặt chẽ cho Online & COD
      */
     public function updateStatus(Request $request, $id)
     {
-        $order = Order::with('items')->findOrFail($id);
+        $order = Order::with(['items', 'user'])->findOrFail($id);
 
         $request->validate([
             'status'         => ['required', Rule::in(array_keys($this->statusLabels))],
@@ -223,95 +259,104 @@ class OrderController extends Controller
         $currentPayment = $order->payment_status;
         $newPayment     = $request->payment_status;
 
-        // Validation Transition
-        if (!in_array($newStatus, $this->allowedStatusTransitions[$currentStatus]) && $newStatus !== $currentStatus) {
-            return back()->with('error', "Không thể chuyển từ '{$this->statusLabels[$currentStatus]}' sang '{$this->statusLabels[$newStatus]}'");
+        // --- 1. VALIDATE STATE MACHINE ---
+        if ($newStatus !== $currentStatus) {
+            $allowed = $this->allowedStatusTransitions[$currentStatus] ?? [];
+            if (!in_array($newStatus, $allowed)) {
+                return back()->with('error', "Quy trình không hợp lệ: Không thể chuyển từ '{$this->statusLabels[$currentStatus]}' sang '{$this->statusLabels[$newStatus]}'.");
+            }
         }
 
-        if (!in_array($newPayment, $this->allowedPaymentTransitions[$currentPayment]) && $newPayment !== $currentPayment) {
-            return back()->with('error', "Không thể chuyển thanh toán từ '{$this->paymentLabels[$currentPayment]}' sang '{$this->paymentLabels[$newPayment]}'");
+        // --- 2. VALIDATE LOGIC THANH TOÁN ---
+
+        // RULE A: Chặn hoàn tác thanh toán
+        if ($currentPayment === 'paid' && $newPayment === 'unpaid') {
+            return back()->with('error', 'Lỗi: Đơn hàng đã thanh toán không thể hoàn tác về chưa thanh toán.');
+        }
+
+        // RULE B: Đơn Online phải thanh toán trước khi Giao hàng
+        if ($newStatus === 'shipping' && $order->payment_method !== 'cod') {
+            if ($currentPayment !== 'paid' && $newPayment !== 'paid') {
+                return back()->with('error', 'Lỗi: Đơn hàng thanh toán Online (Banking/VNPAY) bắt buộc phải "Đã thanh toán" trước khi giao vận chuyển.');
+            }
+        }
+
+        // RULE C: Đơn COD phải thanh toán khi Hoàn thành
+        if ($newStatus === 'completed' && $order->payment_method === 'cod') {
+            if ($newPayment !== 'paid') {
+                return back()->with('error', 'Lỗi: Đơn hàng COD khi "Hoàn thành" bắt buộc phải chọn trạng thái thanh toán là "Đã thanh toán".');
+            }
+        }
+
+        // RULE D: Đơn Online chưa thanh toán không thể Hoàn thành
+        if ($newStatus === 'completed' && $order->payment_method !== 'cod') {
+             if ($newPayment !== 'paid') {
+                 return back()->with('error', 'Lỗi: Đơn hàng Online chưa thanh toán không thể thiết lập Hoàn thành.');
+             }
         }
 
         DB::beginTransaction();
         try {
-            // Logic trừ/nhả kho
+            // --- 3. XỬ LÝ KHO ---
             $isCurrentReserved = in_array($currentStatus, self::STATUS_RESERVED);
             $isNewReserved     = in_array($newStatus, self::STATUS_RESERVED);
 
+            // CASE 1: Nhả hàng về kho (Hủy đơn)
             if ($isCurrentReserved && !$isNewReserved) {
-                // Nhả hàng (VD: Đang xử lý -> Hủy)
                 foreach ($order->items as $item) {
-                    ProductVariant::where('id', $item->product_variant_id)
-                        ->increment('stock_quantity', $item->quantity);
-                    // (Optional) Ghi log InventoryLog 'order_return' tại đây nếu cần
-                }
-            } elseif (!$isCurrentReserved && $isNewReserved) {
-                // Giữ hàng lại (VD: Đã hủy -> Khôi phục về Đang xử lý)
-                foreach ($order->items as $item) {
-                    $variant = ProductVariant::lockForUpdate()->find($item->product_variant_id);
-                    if (!$variant || $variant->stock_quantity < $item->quantity) {
-                        throw new Exception("Không thể khôi phục: Sản phẩm '{$item->product_name}' không đủ hàng.");
+                    $variant = ProductVariant::find($item->product_variant_id);
+                    if ($variant) {
+                        $variant->increment('stock_quantity', $item->quantity);
+                        
+                        InventoryLog::create([
+                            'product_variant_id' => $variant->id,
+                            'user_id'            => Auth::id(),
+                            'type'               => 'order_canceled',
+                            'change_amount'      => $item->quantity,
+                            'remaining_stock'    => $variant->stock_quantity,
+                            'note'               => "Hoàn kho: Đơn #{$order->order_code} đã bị HỦY"
+                        ]);
                     }
                 }
-                foreach ($order->items as $item) {
-                    ProductVariant::where('id', $item->product_variant_id)
-                        ->decrement('stock_quantity', $item->quantity);
-                }
+            }
+            // CASE 2: Không cho phép khôi phục đơn đã hủy
+            elseif (!$isCurrentReserved && $isNewReserved) {
+                 throw new Exception("Hệ thống không cho phép khôi phục đơn đã Hủy. Vui lòng tạo đơn mới.");
             }
 
-            // Update DB
+            // --- 4. UPDATE DATA ---
             $updateData = [
-                'status' => $newStatus, 
+                'status' => $newStatus,
                 'payment_status' => $newPayment
             ];
-            
-            // Cập nhật thời gian thanh toán nếu mới chuyển sang paid
-            if ($newPayment === 'paid' && $currentPayment !== 'paid') {
-                $updateData['paid_at'] = now();
+
+            // [FIX LỖI] Bỏ cập nhật paid_at vì DB không có cột này
+            /* if ($newPayment === 'paid' && $currentPayment !== 'paid') {
+                $updateData['paid_at'] = now(); 
             }
+            */
 
             $order->update($updateData);
 
-            // --- [FIX LOGIC DESCRIPTION] ---
-            // Tạo nội dung thông báo thân thiện cho Realtime
-            $description = '';
+            // --- 5. GHI LOG & EVENT ---
+            $changes = [];
+            if ($currentStatus !== $newStatus) $changes[] = "Trạng thái: {$this->statusLabels[$newStatus]}";
+            if ($currentPayment !== $newPayment) $changes[] = "Thanh toán: {$this->paymentLabels[$newPayment]}";
 
-            if ($newStatus === 'completed') {
-                $description = 'Đơn hàng đã hoàn tất';
-            } elseif ($newStatus === 'cancelled') {
-                $description = 'Đơn hàng đã bị hủy';
-            } elseif ($newStatus === 'shipping') {
-                $description = 'Đơn hàng đã được giao cho đơn vị vận chuyển';
-            } elseif ($newStatus === 'confirmed') {
-                $description = 'Đơn hàng đã được xác nhận';
-            } else {
-                // Nội dung mặc định
-                $description = "Cập nhật trạng thái: {$this->statusLabels[$newStatus]}";
+            if (!empty($changes)) {
+                $history = OrderHistory::create([
+                    'order_id'    => $order->id,
+                    'user_id'     => Auth::id(),
+                    'action'      => 'update_status',
+                    'description' => implode(' | ', $changes),
+                ]);
+
+                if (class_exists(OrderStatusUpdated::class)) {
+                    event(new OrderStatusUpdated($order, 'updated', $history));
+                }
             }
-
-            // Nếu trạng thái đơn không đổi, chỉ đổi thanh toán
-            if ($newStatus === $currentStatus && $newPayment !== $currentPayment) {
-                 $description = "Cập nhật thanh toán: {$this->paymentLabels[$newPayment]}";
-            }
-
-            // Lưu History
-            $history = OrderHistory::create([
-                'order_id'    => $order->id,
-                'user_id'     => Auth::id(),
-                'action'      => $newStatus, // Action lưu mã trạng thái (completed/cancelled...)
-                'description' => $description, // Description hiển thị ra view
-            ]);
-
-            $history->load('user');
 
             DB::commit();
-
-            // --- [FIX EVENT DISPATCH] ---
-            // Gọi đúng construct: ($order, $action, $history)
-            event(new OrderStatusUpdated($order, 'updated', $history));
-
-            Log::info("Order #{$order->order_code} updated to {$newStatus}");
-
             return back()->with('success', 'Cập nhật trạng thái thành công!');
 
         } catch (Exception $e) {
@@ -320,19 +365,12 @@ class OrderController extends Controller
         }
     }
 
-    public function show($id)
-    {
-        // Load histories sắp xếp mới nhất lên đầu để hiển thị timeline đúng
-        $order = Order::with(['items.variant', 'user', 'histories' => function($q) {
-            $q->latest(); 
-        }, 'histories.user'])->findOrFail($id);
-
-        return view('admin.orders.show', compact('order'));
-    }
-
+    /**
+     * 5. IN HÓA ĐƠN
+     */
     public function print($id)
     {
-        $order = Order::with(['items.variant', 'user'])->findOrFail($id);
+        $order = Order::with(['items', 'user'])->findOrFail($id);
         return view('admin.orders.print', compact('order'));
     }
 }

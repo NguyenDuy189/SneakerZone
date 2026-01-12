@@ -22,7 +22,6 @@ class PurchaseOrderController extends Controller
      */
     public function index(Request $request)
     {
-        // Eager loading 'supplier'. Bỏ 'creator' nếu Model chưa định nghĩa để tránh lỗi
         $query = PurchaseOrder::with(['supplier'])
             ->withCount('items')
             ->latest('id');
@@ -45,7 +44,9 @@ class PurchaseOrderController extends Controller
 
         // 4. Lọc theo ngày
         if ($request->filled('date')) {
-            $query->whereDate('created_at', $request->date);
+            try {
+                $query->whereDate('created_at', $request->date);
+            } catch (\Exception $e) {}
         }
 
         $orders = $query->paginate(10)->withQueryString();
@@ -55,122 +56,151 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * HIỂN THỊ FORM TẠO MỚI
+     * HIỂN THỊ FORM TẠO MỚI (ĐÃ FIX LỖI SQL COLUMN NOT FOUND)
      */
     public function create()
     {
         $suppliers = Supplier::whereNull('deleted_at')->orderBy('name')->get();
 
-        // Đảm bảo dữ liệu products được format chuẩn array/collection
-        $products = ProductVariant::with('product')
+        // Query tối ưu: Load kèm thuộc tính (Màu, Size) qua quan hệ attributeValues
+        $products = ProductVariant::with([
+                'product' => function($q) {
+                    $q->select('id', 'name', 'deleted_at');
+                },
+                'attributeValues.attribute' // Load quan hệ: Biến thể -> Giá trị (Đỏ) -> Thuộc tính (Màu sắc)
+            ])
+            // CHỈ SELECT CÁC CỘT CÓ THẬT TRONG BẢNG PRODUCT_VARIANTS
+            ->select('id', 'product_id', 'sku', 'stock_quantity', 'original_price') 
             ->whereNull('deleted_at')
             ->whereHas('product', fn($q) => $q->whereNull('deleted_at'))
             ->get()
             ->map(function ($v) {
-                $name = $v->product->name;
-                if ($v->color || $v->size) {
-                    // Kiểm tra null để tránh lỗi nối chuỗi
-                    $color = $v->color->value ?? ''; // Giả sử color là object attribute value
-                    $size  = $v->size->value ?? '';
-                    // Nếu bạn dùng Accessor getColorAttribute() trong model thì dùng $v->color_attribute->value
-                    // Dưới đây là cách an toàn nhất dựa trên code cũ của bạn:
-                    $attrString = $v->attribute_string ?? ''; // Nếu có accessor
-                    if($attrString) $name .= " - " . $attrString;
+                $name = $v->product->name ?? 'Sản phẩm lỗi';
+                
+                // Xử lý hiển thị thuộc tính: "Giày Nike - Đỏ / 42"
+                $attrDetails = [];
+
+                // Cách 1: Lấy từ quan hệ attributeValues (Chuẩn nhất)
+                if ($v->relationLoaded('attributeValues')) {
+                    foreach ($v->attributeValues as $av) {
+                        // $av->value là "Đỏ", "XL"...
+                        $attrDetails[] = $av->value;
+                    }
+                }
+                
+                // Cách 2: Fallback nếu bạn có cột attribute_string (Json/String)
+                if (empty($attrDetails) && !empty($v->attribute_string)) {
+                    $attrDetails[] = $v->attribute_string;
+                }
+
+                if (!empty($attrDetails)) {
+                    $name .= " - " . implode(' / ', $attrDetails);
                 }
 
                 return [
                     'id'    => $v->id,
                     'name'  => $name,
                     'sku'   => $v->sku,
-                    'stock' => $v->stock_quantity,
-                    'price' => $v->original_price ?? 0 // Giá nhập mặc định
+                    'stock' => $v->stock_quantity ?? 0,
+                    'price' => $v->original_price ?? 0 
                 ];
-            })->values(); // Reset keys để đảm bảo JS nhận là Array, không phải Object
+            })->values();
 
         return view('admin.inventory.purchase_orders.create', compact('suppliers', 'products'));
     }
 
     /**
-     * LƯU PHIẾU NHẬP (STORE)
-     */
-    /**
-     * LƯU PHIẾU NHẬP (STORE)
+     * LƯU PHIẾU NHẬP
      */
     public function store(Request $request)
     {
-        // 1. Làm sạch dữ liệu items
-        $rawItems = $request->input('items', []);
-        $cleanItems = array_filter($rawItems, function ($item) {
-            return !empty($item['variant_id']) && !empty($item['quantity']) && isset($item['import_price']);
-        });
-        
-        $request->merge(['items' => $cleanItems]);
-
-        // 2. Validate
+        // 1. Validate Header
         $request->validate([
             'supplier_id' => ['required', Rule::exists('suppliers', 'id')->whereNull('deleted_at')],
-            // ĐÃ XÓA: dòng validate 'expected_at' vì giờ tự động lấy
-            'note'        => 'nullable|string|max:1000',
-            'items'       => 'required|array|min:1|max:200',
-            'items.*.variant_id' => ['required', 'distinct', Rule::exists('product_variants', 'id')->whereNull('deleted_at')],
-            'items.*.quantity'   => ['required', 'integer', 'min:1', 'max:1000000'],
-            'items.*.import_price' => ['required', 'numeric', 'min:0', 'max:10000000000'],
+            'note'        => ['nullable', 'string', 'max:1000'],
+            'items'       => ['required', 'array', 'min:1'],
+        ], [
+            'supplier_id.required' => 'Vui lòng chọn nhà cung cấp.',
+            'items.required'       => 'Danh sách sản phẩm không được để trống.',
+        ]);
+
+        // 2. Làm sạch items
+        $rawItems = $request->input('items', []);
+        $cleanItems = array_values(array_filter($rawItems, function ($item) {
+            return !empty($item['variant_id']) && isset($item['quantity']) && $item['quantity'] > 0;
+        }));
+
+        if (empty($cleanItems)) {
+            return back()->with('error', 'Vui lòng kiểm tra danh sách sản phẩm (Số lượng > 0).')->withInput();
+        }
+        $request->merge(['items' => $cleanItems]);
+
+        // 3. Validate chi tiết
+        $request->validate([
+            'items.*.variant_id'   => ['required', 'distinct', Rule::exists('product_variants', 'id')->whereNull('deleted_at')],
+            'items.*.quantity'     => ['required', 'integer', 'min:1', 'max:1000000'],
+            'items.*.import_price' => ['required', 'numeric', 'min:0'],
+        ], [
+            'items.*.variant_id.distinct' => 'Sản phẩm bị trùng lặp, vui lòng gộp số lượng.',
+            'items.*.variant_id.exists'   => 'Sản phẩm không tồn tại.',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // 3. Tạo mã phiếu PO-...
+            // Tạo mã phiếu PO-...
             $poCode = 'PO-' . date('ymd') . '-' . strtoupper(Str::random(5));
-            while (PurchaseOrder::where('code', $poCode)->exists()) {
+            // Retry đơn giản nếu trùng mã
+            if (PurchaseOrder::where('code', $poCode)->exists()) {
                 $poCode = 'PO-' . date('ymd') . '-' . strtoupper(Str::random(5));
             }
 
-            // 4. Tạo Header Phiếu
             $purchaseOrder = PurchaseOrder::create([
-                'code'         => $poCode,
-                'supplier_id'  => $request->supplier_id,
-                'status'       => PurchaseOrder::STATUS_PENDING,
-                'note'         => $request->note,
-                
-                // --- THAY ĐỔI TẠI ĐÂY ---
-                // Thay vì lấy $request->expected_at, ta dùng hàm now() để lấy thời gian hiện tại
-                'expected_at'  => now(), 
-                
-                'total_amount' => 0, 
+                'code'          => $poCode,
+                'supplier_id'   => $request->supplier_id,
+                'status'        => PurchaseOrder::STATUS_PENDING,
+                'note'          => $request->note,
+                'expected_at'   => now(),
+                'total_amount'  => 0,
+                'created_by'    => Auth::id() ?? 1,
             ]);
 
             $grandTotal = 0;
+            $itemsToInsert = [];
 
-            // 5. Tạo chi tiết items
             foreach ($request->items as $item) {
-                $quantity = (int) $item['quantity'];
-                $price    = (float) $item['import_price'];
-                $total    = $quantity * $price;
+                $qty   = (int) $item['quantity'];
+                $price = (float) ($item['import_price'] ?? 0);
+                $total = $qty * $price;
 
-                PurchaseOrderItem::create([
+                $itemsToInsert[] = [
                     'purchase_order_id'  => $purchaseOrder->id,
                     'product_variant_id' => $item['variant_id'],
-                    'quantity'           => $quantity,
+                    'quantity'           => $qty,
                     'import_price'       => $price,
                     'subtotal'           => $total,
-                ]);
+                    'created_at'         => now(),
+                    'updated_at'         => now(),
+                ];
 
                 $grandTotal += $total;
             }
 
-            // Update tổng tiền
+            if (!empty($itemsToInsert)) {
+                PurchaseOrderItem::insert($itemsToInsert);
+            }
+
             $purchaseOrder->update(['total_amount' => $grandTotal]);
 
             DB::commit();
 
             return redirect()
                 ->route('admin.purchase_orders.show', $purchaseOrder->id)
-                ->with('success', 'Đã tạo phiếu nhập hàng thành công.');
+                ->with('success', 'Tạo phiếu nhập hàng thành công.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("PO Create Failed: " . $e->getMessage());
+            Log::error("PO Create Error: " . $e->getMessage());
             return back()->with('error', 'Lỗi hệ thống: ' . $e->getMessage())->withInput();
         }
     }
@@ -190,7 +220,6 @@ class PurchaseOrderController extends Controller
 
     /**
      * CẬP NHẬT TRẠNG THÁI (DUYỆT / HỦY)
-     * Đây là hàm quan trọng nhất để fix lỗi InventoryLog
      */
     public function updateStatus(Request $request, $id)
     {
@@ -207,66 +236,63 @@ class PurchaseOrderController extends Controller
             return back()->with('error', 'Phiếu này đã được xử lý rồi.');
         }
 
-        // ================= DUYỆT ĐƠN (NHẬP KHO) ================= //
-        if ($request->status === PurchaseOrder::STATUS_COMPLETED) {
+        // --- XỬ LÝ HỦY ĐƠN ---
+        if ($request->status == PurchaseOrder::STATUS_CANCELLED) {
+            $po->update(['status' => PurchaseOrder::STATUS_CANCELLED]);
+            return back()->with('success', 'Đã hủy phiếu nhập hàng.');
+        }
+
+        // --- XỬ LÝ DUYỆT NHẬP KHO ---
+        if ($request->status == PurchaseOrder::STATUS_COMPLETED) {
+            if ($po->items->isEmpty()) {
+                return back()->with('error', 'Phiếu trống, không thể nhập kho.');
+            }
+
             try {
                 DB::beginTransaction();
 
                 foreach ($po->items as $item) {
-                    // Lock dữ liệu
                     $variant = ProductVariant::lockForUpdate()->find($item->product_variant_id);
 
-                    if (!$variant) {
-                        throw new \Exception("Sản phẩm ID {$item->product_variant_id} không tồn tại.");
-                    }
+                    if (!$variant) continue; // Hoặc throw exception
 
-                    // 1. Tính toán
                     $oldStock     = $variant->stock_quantity;
                     $changeAmount = $item->quantity;
                     $newStock     = $oldStock + $changeAmount;
 
-                    // 2. Cập nhật Variant
+                    // 1. Cập nhật tồn kho & giá nhập
                     $variant->update([
                         'stock_quantity' => $newStock,
                         'original_price' => $item->import_price 
                     ]);
 
-                    // 3. Ghi Log Kho (ĐÃ SỬA ĐÚNG STRUCUTRE BẢNG LOG CỦA BẠN)
+                    // 2. Ghi Log
+                    // Kiểm tra xem Model có hằng số TYPE_IMPORT không, nếu không dùng string cứng 'import'
+                    $logType = defined(InventoryLog::class . '::TYPE_IMPORT') ? InventoryLog::TYPE_IMPORT : 'import';
+
                     InventoryLog::create([
                         'product_variant_id' => $variant->id,
-                        'user_id'            => Auth::id() ?? 1, // Lấy ID admin hoặc mặc định 1
-                        
-                        // --- CÁC CỘT QUAN TRỌNG ĐÃ FIX ---
-                        'old_quantity'       => $oldStock,      // Tồn đầu
-                        'change_amount'      => $changeAmount,  // Số thay đổi (Tránh lỗi 1364)
-                        'new_quantity'       => $newStock,      // Tồn cuối
-                        // ---------------------------------
-                        
-                        'type'               => InventoryLog::TYPE_IMPORT, // Hoặc 'import'
+                        'user_id'            => Auth::id() ?? 1,
+                        'old_quantity'       => $oldStock,
+                        'change_amount'      => $changeAmount,
+                        'new_quantity'       => $newStock,
+                        'type'               => $logType,
                         'reference_type'     => 'purchase_order',
                         'reference_id'       => $po->id,
-                        'note'               => "Nhập kho từ đơn: {$po->code}",
+                        'note'               => "Nhập kho PO: {$po->code}",
                     ]);
                 }
 
                 $po->update(['status' => PurchaseOrder::STATUS_COMPLETED]);
 
                 DB::commit();
-                return back()->with('success', 'Đã duyệt đơn và nhập kho thành công!');
+                return back()->with('success', 'Đã duyệt nhập kho thành công!');
 
             } catch (\Exception $e) {
                 DB::rollBack();
-                Log::error("PO Approve Error PO#{$id}: " . $e->getMessage());
-                return back()->with('error', 'Lỗi khi nhập kho: ' . $e->getMessage());
+                Log::error("PO Approve Error: " . $e->getMessage());
+                return back()->with('error', 'Lỗi nhập kho: ' . $e->getMessage());
             }
         }
-
-        // ================= HỦY ĐƠN ================= //
-        if ($request->status === PurchaseOrder::STATUS_CANCELLED) {
-            $po->update(['status' => PurchaseOrder::STATUS_CANCELLED]);
-            return back()->with('success', 'Đã hủy phiếu nhập hàng.');
-        }
-
-        return back()->with('error', 'Trạng thái không hợp lệ.');
     }
 }

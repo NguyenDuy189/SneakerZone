@@ -46,15 +46,32 @@
                 </div>
 
                 {{-- 3. Trạng thái --}}
+                {{-- Thêm class 'md:col-span-3' để ô select rộng ra --}}
                 <div class="md:col-span-3 relative">
+                    
+                    {{-- Icon bên trái --}}
                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <i class="fa-solid fa-toggle-on"></i>
                     </div>
-                    <select name="status" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none appearance-none cursor-pointer">
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Đã duyệt</option>
-                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Chờ duyệt</option>
+
+                    {{-- Select Box --}}
+                    <select name="status" 
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none appearance-none cursor-pointer transition-all duration-200">
+                        
+                        <option value="all"> Tất cả trạng thái </option>
+                        
+                        {{-- Logic Value: 1 (Đã duyệt) --}}
+                        <option value="1" {{ request('status') == '1' ? 'selected' : '' }}>
+                            Đã duyệt
+                        </option>
+                        
+                        {{-- Logic Value: 0 (Chờ duyệt) --}}
+                        <option value="0" {{ request('status') == '0' ? 'selected' : '' }}>
+                            Chờ duyệt
+                        </option>
                     </select>
+
+                    {{-- Icon mũi tên bên phải --}}
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
                         <i class="fa-solid fa-chevron-down text-xs"></i>
                     </div>
@@ -104,9 +121,14 @@
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
                                     {{-- Giả sử Product có quan hệ thumbnail --}}
-                                    <img src="{{ asset('storage/'.$review->product->thumbnail) }}" 
-                                         onerror="this.src='{{ asset('images/default-product.png') }}'" 
-                                         class="w-full h-full object-cover">
+                                    <img 
+                                        src="{{ $review->product && $review->product->thumbnail ? asset('storage/' . $review->product->thumbnail) : 'https://placehold.co/50x50?text=No+Img' }}" 
+                                        alt="Product Image"
+                                        class="w-10 h-10 object-cover rounded"
+                                        
+                                        {{-- 👇 QUAN TRỌNG: Thêm đoạn này để chặn reload --}}
+                                        onerror="this.onerror=null; this.src='https://placehold.co/50x50?text=No+Img';"
+                                    >
                                 </div>
                                 <div class="min-w-0">
                                     <p class="text-sm font-bold text-slate-800 truncate" title="{{ $review->product->name }}">
