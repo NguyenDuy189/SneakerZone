@@ -64,17 +64,14 @@
                                         <a href="#">{{ $product->name }}</a>
                                     </h3>
                                     
+                                    {{-- CODE MỚI: Duyệt qua danh sách thuộc tính động --}}
                                     <div class="flex flex-wrap gap-2 mt-1.5">
-                                        @if($variant->color)
+                                        @foreach($variant->attributeValues as $attributeValue)
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                                {{ $variant->color->name }}
+                                                {{-- Ví dụ: Màu sắc: Đỏ hoặc Size: XL --}}
+                                                {{ $attributeValue->attribute->name }}: {{ $attributeValue->value }}
                                             </span>
-                                        @endif
-                                        @if($variant->size)
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                                Size: {{ $variant->size->name }}
-                                            </span>
-                                        @endif
+                                        @endforeach
                                     </div>
                                 </div>
 

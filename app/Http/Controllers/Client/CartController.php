@@ -39,10 +39,15 @@ class CartController extends Controller
     {
         $cart = $this->getCart();
         
-        // Eager load để tối ưu truy vấn SQL (N1 Problem)
-        $cart->load(['items.variant.product', 'items.variant.color', 'items.variant.size']);
+        // CẬP NHẬT LẠI DÒNG NÀY
+        // Load variants kèm theo các thuộc tính động (Màu, Size, Vật liệu...)
+        // thay vì fix cứng color/size
+        $cart->load([
+            'items.variant.product', 
+            'items.variant.attributeValues.attribute'
+        ]);
 
-        // Tính toán lại lần cuối trước khi hiển thị để đảm bảo số liệu đúng
+        // Tính toán lại lần cuối
         $totals = $this->calculateCartTotals($cart);
 
         return view('client.carts.index', compact('cart', 'totals'));

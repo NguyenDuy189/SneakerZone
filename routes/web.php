@@ -14,8 +14,9 @@ use App\Http\Controllers\Client\ReviewController as ClientReviewController;
 use App\Http\Controllers\Client\AuthController as ClientAuthController;
 use App\Http\Controllers\Client\CheckoutController;
 use App\Http\Controllers\Client\AccountController;
-    use App\Http\Controllers\Client\VoucherController;
-
+use App\Http\Controllers\Client\VoucherController;
+use App\Http\Controllers\Client\PageController;
+use App\Http\Controllers\Client\ProductSaleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,6 +43,7 @@ use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\InventoryController;
 
+
 /*
 |--------------------------------------------------------------------------
 | MIDDLEWARE
@@ -54,11 +56,34 @@ use App\Http\Middleware\CheckRole;
 | 1. GLOBAL AUTH ROUTES (Bên ngoài group client. để tránh prefix login)
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| 1. GLOBAL AUTH ROUTES (Bên ngoài group client)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('guest')->group(function () {
+    // ... Login & Register cũ ...
     Route::get('login', [ClientAuthController::class, 'showLoginForm'])->name('login');
     Route::post('login', [ClientAuthController::class, 'login'])->name('login.submit');
     Route::get('register', [ClientAuthController::class, 'showRegisterForm'])->name('register');
     Route::post('register', [ClientAuthController::class, 'register'])->name('register.submit');
+
+    // --- THÊM MỚI: QUÊN MẬT KHẨU (CLIENT) ---
+    // 1. Form nhập email quên mật khẩu
+    Route::get('forgot-password', [ClientAuthController::class, 'showForgotPasswordForm'])
+        ->name('password.request');
+
+    // 2. Xử lý gửi email reset link
+    Route::post('forgot-password', [ClientAuthController::class, 'sendResetLinkEmail'])
+        ->name('password.email');
+
+    // 3. Form nhập mật khẩu mới (khi bấm link từ email)
+    Route::get('reset-password/{token}', [ClientAuthController::class, 'showResetPasswordForm'])
+        ->name('password.reset');
+
+    // 4. Xử lý cập nhật mật khẩu mới
+    Route::post('reset-password', [ClientAuthController::class, 'resetPassword'])
+        ->name('password.update');
 });
 
 Route::post('logout', [ClientAuthController::class, 'logout'])->name('logout')->middleware('auth');
@@ -144,8 +169,28 @@ Route::name('client.')->group(function () {
     });
 
     Route::get('/vouchers', [VoucherController::class, 'index'])->name('vouchers.index');
-});
 
+    Route::get('/sale', [ProductSaleController::class, 'index'])->name('products.sale');
+
+    
+});
+// Pages Footer
+Route::prefix('page')->name('page.')->group(function() {
+    Route::get('/ve-chung-toi', [PageController::class, 'about'])->name('about');
+    Route::get('/lien-he', [PageController::class, 'contact'])->name('contact');
+    Route::get('/chinh-sach-doi-tra', [PageController::class, 'returnPolicy'])->name('return-policy');
+    Route::get('/chinh-sach-bao-mat', [PageController::class, 'privacyPolicy'])->name('privacy-policy');
+    Route::get('/huong-dan-mua-hang', [PageController::class, 'buyingGuide'])->name('buying-guide');
+    Route::get('/tra-cuu-don-hang', [PageController::class, 'tracking'])->name('tracking');
+    Route::get('/tim-cua-hang', [PageController::class, 'stores'])->name('stores');
+    Route::get('/tin-tuc', [PageController::class, 'news'])->name('news');
+});
+/*
+|--------------------------------------------------------------------------
+| 3. ADMIN PANEL (FULL)
+|--------------------------------------------------------------------------
+*/
+// Admin Auth
 /*
 |--------------------------------------------------------------------------
 | 3. ADMIN PANEL (FULL)
@@ -153,9 +198,29 @@ Route::name('client.')->group(function () {
 */
 // Admin Auth
 Route::prefix('admin')->name('admin.')->group(function () {
+    // ... Login cũ ...
     Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AdminAuthController::class, 'login'])->name('login.submit');
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+
+    // --- THÊM MỚI: QUÊN MẬT KHẨU (ADMIN) ---
+    // URL thực tế: /admin/forgot-password
+    
+    // 1. Form nhập email
+    Route::get('forgot-password', [AdminAuthController::class, 'showLinkRequestForm'])
+        ->name('password.request'); // Tên đầy đủ: admin.password.request
+
+    // 2. Gửi mail
+    Route::post('forgot-password', [AdminAuthController::class, 'sendResetLinkEmail'])
+        ->name('password.email');
+
+    // 3. Form reset (có token)
+    Route::get('reset-password/{token}', [AdminAuthController::class, 'showResetForm'])
+        ->name('password.reset');
+
+    // 4. Update mật khẩu
+    Route::post('reset-password', [AdminAuthController::class, 'reset'])
+        ->name('password.update');
 });
 
 // Admin Dashboard & Management
@@ -303,4 +368,6 @@ Route::prefix('admin')
         Route::get('edit', 'edit')->name('edit');
         Route::post('update', 'update')->name('update');
     });
+
+    
 });

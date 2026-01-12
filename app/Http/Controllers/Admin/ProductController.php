@@ -75,10 +75,9 @@ class ProductController extends Controller
     }
 
     // Thay thế hoàn toàn hàm store cũ của bạn
-    // Thay thế hoàn toàn hàm store cũ của bạn
     public function store(Request $request)
     {
-        // 1. Validate dữ liệu Sản phẩm cha
+        // 1. Validate dữ liệu
         $this->validateProduct($request);
 
         DB::beginTransaction();
@@ -91,12 +90,14 @@ class ProductController extends Controller
                 $data['sku_code'] = $this->generateSku();
             }
 
-            // Upload Thumbnail (Bắt buộc khi tạo mới)
+            // Upload Thumbnail
             if ($request->hasFile('thumbnail')) {
-                $data['image'] = $this->uploadFile($request->file('thumbnail'), 'products/thumbnails');
+                // Lưu ý: Key ở đây là 'img_thumb' khớp với database
+                $data['img_thumb'] = $this->uploadFile($request->file('thumbnail'), 'products/thumbnails');
             }
 
             // 3. Tạo Product
+            // Đảm bảo $fillable trong Model Product có chứa 'img_thumb'
             $product = Product::create($data);
 
             // 4. Gắn danh mục
@@ -104,28 +105,33 @@ class ProductController extends Controller
                 $product->categories()->sync($request->category_ids);
             }
 
-            // 5. Xử lý Gallery (Nếu cho upload ngay lúc tạo)
+            // 5. Xử lý Gallery (Tương thích với Model ProductImage bạn gửi)
             if ($request->hasFile('gallery')) {
                 foreach ($request->file('gallery') as $idx => $file) {
                     $path = $this->uploadFile($file, 'products/gallery');
+                    
+                    // Mối quan hệ này sẽ tự động điền 'product_id'
                     $product->gallery_images()->create([
-                        'image_path' => $path,
-                        'sort_order' => $idx + 1
+                        'image_path' => $path,       // Khớp với $fillable của ProductImage
+                        'sort_order' => $idx + 1     // Khớp với $fillable của ProductImage
                     ]);
                 }
             }
 
             DB::commit();
 
-            // Chuyển hướng sang trang Edit để thêm biến thể
             return redirect()->route('admin.products.edit', $product->id)
-                             ->with('success', 'Tạo sản phẩm thành công! Hãy thêm các phiên bản (biến thể).');
+                            ->with('success', 'Tạo sản phẩm thành công! Hãy thêm các phiên bản (biến thể).');
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Lỗi tạo sản phẩm: " . $e->getMessage());
-            // Xóa ảnh nếu upload thành công mà lưu DB thất bại (tránh rác server)
-            if (isset($data['image'])) $this->deleteFile($data['image']);
+            
+            // --- FIX LỖI Ở ĐÂY ---
+            // Sửa 'image' thành 'img_thumb' cho đúng với key trong $data
+            if (isset($data['img_thumb'])) {
+                $this->deleteFile($data['img_thumb']);
+            }
             
             return back()->withInput()->with('error', 'Lỗi hệ thống: ' . $e->getMessage());
         }

@@ -45,10 +45,10 @@ class CheckoutController extends Controller
             // 4. Lấy địa chỉ
             $addresses = UserAddress::where('user_id', Auth::id())->orderByDesc('is_default')->get();
             // Đoạn code debug
-// $couponCode = $cart->discount_code; // Lấy "VIP10"
-// $voucher = \App\Models\Discount::where('code', $couponCode)->first(); // Thay Discount bằng tên Model của bạn
+            // $couponCode = $cart->discount_code; // Lấy "VIP10"
+            // $voucher = \App\Models\Discount::where('code', $couponCode)->first(); // Thay Discount bằng tên Model của bạn
 
-// dd($voucher); // <--- Chạy lại và xem nó ra NULL hay ra dữ liệu?
+            // dd($voucher); // <--- Chạy lại và xem nó ra NULL hay ra dữ liệu?
             return view('client.checkouts.index', compact('cart', 'subtotal', 'discount', 'shippingFee', 'total', 'addresses'));
 
         } catch (\Throwable $e) {

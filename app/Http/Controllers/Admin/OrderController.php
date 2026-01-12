@@ -74,7 +74,7 @@ class OrderController extends Controller
                   ->orWhere('shipping_address->phone', 'like', "%{$keyword}%")
                   // Tìm dự phòng trong bảng User nếu thông tin trong JSON bị thiếu
                   ->orWhereHas('user', function($subQ) use ($keyword) {
-                      $subQ->where('name', 'like', "%{$keyword}%")
+                      $subQ->where('full_name', 'like', "%{$keyword}%")
                            ->orWhere('email', 'like', "%{$keyword}%");
                   });
             });

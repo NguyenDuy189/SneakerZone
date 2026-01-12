@@ -64,8 +64,9 @@ class Product extends Model
      */
     public function variants()
     {
-        return $this->hasMany(ProductVariant::class);
+        return $this->hasMany(ProductVariant::class, 'product_id');
     }
+
 
     /**
      * 4. Ảnh chi tiết / Gallery (HasMany)
@@ -74,7 +75,7 @@ class Product extends Model
     public function gallery_images()
     {
         // Model tên là ProductImage, khóa ngoại product_id
-        return $this->hasMany(ProductImage::class)->orderBy('sort_order', 'asc');
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order', 'asc', 'product_id');
     }
 
     /**
@@ -111,6 +112,13 @@ class Product extends Model
     // Tạo thuộc tính ảo: $product->stock_quantity
     public function getStockQuantityAttribute() {
         return $this->variants->sum('stock_quantity');
+    }
+
+    
+    // Scope lấy sản phẩm đang Published
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'published');
     }
 
 }

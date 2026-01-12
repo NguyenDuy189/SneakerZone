@@ -119,7 +119,7 @@ class ProductController extends Controller
      * CHI TIẾT SẢN PHẨM (DETAIL PAGE)
      * Hiển thị thông tin chi tiết, biến thể, ảnh và đánh giá.
      */
-public function show($slug)
+    public function show($slug)
     {
         try {
             // 1. Load sản phẩm + Tính toán số sao (Avg) + Đếm số đánh giá (Count)
