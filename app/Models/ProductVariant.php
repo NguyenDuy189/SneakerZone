@@ -16,7 +16,7 @@ class ProductVariant extends Model
     protected $fillable = [
         'product_id',
         'sku',
-        'name',
+        'name',       // <--- BẮT BUỘC THÊM CÁI NÀY
         'image_url',     // (Giữ lại nếu database của bạn dùng tên này)
         'original_price',
         'sale_price',

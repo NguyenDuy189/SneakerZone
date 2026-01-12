@@ -21,7 +21,7 @@ class Product extends Model
         'short_description', 
         'brand_id', 
         'category_id', // Quan trọng: Khóa ngoại danh mục
-        'image',       // Quan trọng: Ảnh đại diện chính (View đang gọi là image)
+        'thumbnail',       // Quan trọng: Ảnh đại diện chính (View đang gọi là image)
         'price_min', 
         'stock_quantity',
         'status',      // 'published' hoặc 'draft'
