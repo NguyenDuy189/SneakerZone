@@ -15,7 +15,7 @@
         'shipping'   => ['label' => 'Đang vận chuyển','class' => 'bg-purple-100 text-purple-800 border border-purple-200', 'icon' => '🟣'],
         'completed'  => ['label' => 'Hoàn thành',     'class' => 'bg-emerald-100 text-emerald-800 border border-emerald-200', 'icon' => '🟢'],
         'cancelled'  => ['label' => 'Đã hủy',         'class' => 'bg-rose-100 text-rose-800 border border-rose-200',       'icon' => '🔴'],
-        'returned'   => ['label' => 'Trả hàng',       'class' => 'bg-slate-100 text-slate-800 border border-slate-200',     'icon' => '↩️'],
+        'returned'   => ['label' => 'Trả hàng',       'class' => 'bg-slate-100 text-slate-800 border border-slate-200',    'icon' => '↩️'],
     ];
 @endphp
 
@@ -102,7 +102,7 @@
                         placeholder="Tìm kiếm mã đơn, tên khách, SĐT...">
                 </div>
 
-                {{-- Select Trạng thái (Sử dụng $statusMap) --}}
+                {{-- Select Trạng thái --}}
                 <div class="md:col-span-3">
                     <select name="status" class="w-full border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-sm text-slate-600 font-medium">
                         <option value="">Tất cả trạng thái</option>
@@ -165,24 +165,49 @@
                             </a>
                         </td>
 
-                        {{-- Khách hàng --}}
+                        {{-- [ĐÃ FIX] Cột Khách hàng (Hiển thị thông minh) --}}
                         <td class="px-6 py-4">
+                            @php
+                                // 1. Lấy tên hiển thị: Ưu tiên Tên nhận hàng -> Tên User -> Mặc định
+                                $displayName = $order->shipping_address['contact_name'] 
+                                                ?? optional($order->user)->full_name 
+                                                ?? 'Khách vãng lai';
+                                
+                                // 2. Lấy chữ cái đầu cho Avatar
+                                $initial = mb_substr($displayName, 0, 1);
+
+                                // 3. Lấy số điện thoại
+                                $displayPhone = $order->shipping_address['phone'] 
+                                                ?? optional($order->user)->phone 
+                                                ?? '---';
+                            @endphp
+
                             <div class="flex items-center">
-                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 border border-white shadow-sm mr-3">
-                                    {{ substr($order->shipping_address['contact_name'] ?? 'U', 0, 1) }}
+                                {{-- Avatar --}}
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-50 to-slate-100 flex items-center justify-center text-sm font-bold text-indigo-600 border border-slate-200 shadow-sm mr-3 flex-shrink-0">
+                                    {{ $initial }}
                                 </div>
+                                
+                                {{-- Info --}}
                                 <div>
-                                    <div class="font-bold text-slate-700 text-sm">{{ $order->shipping_address['contact_name'] ?? 'Khách lẻ' }}</div>
-                                    <div class="text-xs text-slate-400 font-mono">{{ $order->shipping_address['phone'] ?? '' }}</div>
+                                    <div class="font-bold text-slate-700 text-sm flex items-center gap-2">
+                                        {{ $displayName }}
+                                        @if($order->user_id)
+                                            <span class="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 rounded border border-indigo-100" title="Thành viên">Thành viên</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                        <i class="fa-solid fa-phone text-[10px]"></i> 
+                                        {{ $displayPhone }}
+                                    </div>
                                 </div>
                             </div>
                         </td>
 
-                        {{-- Trạng thái (Sử dụng $statusMap) --}}
+                        {{-- Trạng thái --}}
                         <td class="px-6 py-4 text-center">
                             @php
                                 $status = $order->status;
-                                // Lấy config từ mảng đã định nghĩa ở đầu file, fallback nếu không tìm thấy
                                 $conf = $statusMap[$status] ?? ['class' => 'bg-slate-100 text-slate-600', 'label' => $status];
                             @endphp
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $conf['class'] }}">

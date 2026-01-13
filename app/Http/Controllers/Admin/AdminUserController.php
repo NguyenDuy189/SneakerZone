@@ -218,4 +218,14 @@ class AdminUserController extends Controller implements HasMiddleware
 
         return back()->with('success', 'Đã xóa tài khoản nhân sự khỏi hệ thống.');
     }
+
+    public function show($id)
+    {
+        // Lấy thông tin user kèm các đơn hàng đã đặt
+        $user = User::with(['orders' => function($q) {
+            $q->latest(); // Lấy đơn mới nhất trước
+        }])->findOrFail($id);
+
+        return view('admin.users.show', compact('user'));
+    }
 }

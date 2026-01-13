@@ -17,11 +17,11 @@
         'returned'   => ['label' => 'Trả hàng',       'class' => 'bg-slate-100 text-slate-700 border-slate-200',     'icon' => '↩️'],
     ];
 
-    // [CẬP NHẬT] Quy tắc chuyển đổi trạng thái (Đã xóa 'returned' khỏi shipping/completed)
+    // Quy tắc chuyển đổi trạng thái
     $transitions = [
         'pending'    => ['processing', 'cancelled'],             // Chờ xử lý -> Đóng gói hoặc Hủy
         'processing' => ['shipping', 'cancelled'],               // Đóng gói -> Giao hàng hoặc Hủy
-        'shipping'   => ['completed', 'cancelled'],              // Giao hàng -> Xong hoặc Hủy (Bỏ Returned)
+        'shipping'   => ['completed', 'cancelled'],              // Giao hàng -> Xong hoặc Hủy
         'completed'  => [],                                      // KHÓA
         'cancelled'  => [],                                      // KHÓA
         'returned'   => [],                                      // KHÓA
@@ -48,7 +48,7 @@
                 <h1 class="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
                     #{{ $order->order_code }}
                     
-                    {{-- Status Badge (Sử dụng config ở trên) --}}
+                    {{-- Status Badge --}}
                     <span id="order-status-badge" class="px-3 py-1 rounded-lg text-sm font-bold border {{ $statusConfig[$currentStatus]['class'] ?? 'bg-gray-100' }}">
                         {{ $statusConfig[$currentStatus]['label'] ?? $currentStatus }}
                     </span>
@@ -109,29 +109,105 @@
                             <tr class="hover:bg-slate-50/50 transition-colors">
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-4">
-                                        {{-- Ảnh sản phẩm (Fallback logic) --}}
-                                        <div class="w-14 h-14 rounded-lg border border-slate-100 bg-white p-0.5 shadow-sm flex-shrink-0 overflow-hidden">
+                                        {{-- 1. ẢNH SẢN PHẨM --}}
+                                        <div class="w-14 h-14 rounded-lg border border-slate-100 bg-white p-0.5 shadow-sm flex-shrink-0 overflow-hidden relative group">
                                             @php
+                                                // Khởi tạo ảnh mặc định
                                                 $imgUrl = 'https://placehold.co/100x100?text=No+Img';
-                                                if($item->variant && $item->variant->image_url) {
-                                                    $imgUrl = asset('storage/' . $item->variant->image_url);
-                                                } elseif($item->variant && $item->variant->product && $item->variant->product->thumbnail) {
-                                                    $imgUrl = asset('storage/' . $item->variant->product->thumbnail);
+
+                                                // 1. Ưu tiên lấy ảnh Snapshot đã lưu trong order_items (để tránh mất ảnh khi xóa SP/Variant)
+                                                if (!empty($item->thumbnail)) {
+                                                    $imgUrl = $item->thumbnail;
+                                                }
+                                                // 2. Nếu không có snapshot, thử lấy ảnh của Variant hiện tại
+                                                elseif ($item->variant && $item->variant->image) {
+                                                    $imgUrl = $item->variant->image;
+                                                }
+                                                // 3. Nếu không có ảnh Variant, thử lấy ảnh của Product cha thông qua Variant
+                                                elseif ($item->variant && $item->variant->product && $item->variant->product->thumbnail) {
+                                                    $imgUrl = $item->variant->product->thumbnail;
+                                                }
+                                                // 4. Fallback cuối cùng: Lấy ảnh trực tiếp từ Product (nếu item có quan hệ product)
+                                                elseif ($item->product && $item->product->thumbnail) {
+                                                    $imgUrl = $item->product->thumbnail;
+                                                }
+
+                                                // Xử lý đường dẫn ảnh (nếu lưu local path thì thêm asset storage)
+                                                if ($imgUrl && !Str::startsWith($imgUrl, ['http', 'https']) && $imgUrl !== 'https://placehold.co/100x100?text=No+Img') {
+                                                    $imgUrl = asset('storage/' . $imgUrl); 
                                                 }
                                             @endphp
-                                            <img src="{{ $imgUrl }}" class="w-full h-full object-cover rounded-md">
+                                            
+                                            <img src="{{ $imgUrl }}" 
+                                                alt="{{ $item->product_name ?? 'Product Image' }}"
+                                                class="w-full h-full object-cover rounded-md group-hover:scale-110 transition-transform duration-300">
                                         </div>
+
+                                        {{-- 2. THÔNG TIN SẢN PHẨM & BIẾN THỂ --}}
                                         <div>
-                                            <div class="font-bold text-slate-800 text-sm mb-1 line-clamp-1" title="{{ $item->product_name }}">
-                                                {{ $item->product_name }}
+                                            {{-- Tên sản phẩm --}}
+                                            <div class="font-bold text-slate-800 text-sm mb-1 line-clamp-1" 
+                                                title="{{ $item->product_name }}">
+                                                {{ $item->product_name ?? 'Unknown Product' }}
                                             </div>
-                                            <div class="flex flex-wrap gap-1">
-                                                <span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
-                                                    {{ $item->sku }}
-                                                </span>
-                                                <span class="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100">
-                                                    {{ $item->size ?? '-' }} / {{ $item->color ?? '-' }}
-                                                </span>
+                                            
+                                            <div class="flex flex-wrap gap-1 items-center">
+                                                {{-- SKU --}}
+                                                @if($item->sku)
+                                                    <span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200" title="SKU">
+                                                        {{ $item->sku }}
+                                                    </span>
+                                                @endif
+
+                                                {{-- LOGIC LẤY BIẾN THỂ (SIZE / COLOR) TỪ DB --}}
+                                                @php
+                                                    $size = null;
+                                                    $color = null;
+
+                                                    // Kiểm tra nếu Variant còn tồn tại và có các thuộc tính
+                                                    if ($item->variant && $item->variant->attributeValues) {
+                                                        foreach ($item->variant->attributeValues as $av) {
+                                                            // Kiểm tra code của attribute cha (size hoặc color)
+                                                            // Cần đảm bảo relation 'attribute' được eager load trong Controller
+                                                            if ($av->attribute && strtolower($av->attribute->code) == 'size') {
+                                                                $size = $av->value;
+                                                            }
+                                                            if ($av->attribute && strtolower($av->attribute->code) == 'color') {
+                                                                $color = $av->value;
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    // Fallback: Nếu không tìm thấy qua quan hệ (do xóa variant), thử parse từ tên sản phẩm
+                                                    // Ví dụ tên: "Giày Nike - Size 40" -> Cố gắng lấy "40" (Cách này không khuyến khích nhưng là phương án cuối)
+                                                    if (!$size && preg_match('/Size\s*(\d+)/i', $item->product_name, $matches)) {
+                                                        $size = $matches[1];
+                                                    }
+                                                @endphp
+
+                                                @if($size || $color)
+                                                    <span class="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 flex items-center gap-1">
+                                                        {{-- Hiển thị Size --}}
+                                                        @if($size)
+                                                            <span>Size: {{ $size }}</span>
+                                                        @endif
+                                                        
+                                                        {{-- Dấu gạch ngăn cách --}}
+                                                        @if($size && $color) <span class="opacity-50">|</span> @endif
+                                                        
+                                                        {{-- Hiển thị Color --}}
+                                                        @if($color)
+                                                            <span>Màu: {{ $color }}</span>
+                                                        @endif
+                                                    </span>
+                                                @endif
+                                                
+                                                {{-- Cảnh báo nếu Variant đã bị xóa (quan hệ null) --}}
+                                                @if(!$item->variant)
+                                                    <span class="text-[9px] text-rose-500 bg-rose-50 px-1 rounded border border-rose-100" title="Sản phẩm gốc đã bị xóa khỏi hệ thống">
+                                                        ⚠ Đã xóa SP gốc
+                                                    </span>
+                                                @endif
                                             </div>
                                         </div>
                                     </div>
@@ -213,7 +289,6 @@
                 <div class="p-6">
                     <h3 class="font-bold text-slate-800 mb-4">Cập nhật trạng thái</h3>
                     
-                    {{-- Thông báo và Gợi ý --}}
                     @if($isOrderLocked)
                         <div class="p-3 mb-4 bg-slate-100 text-slate-500 text-xs rounded-lg border border-slate-200 flex items-start gap-2">
                             <i class="fa-solid fa-lock mt-0.5"></i>
@@ -223,7 +298,6 @@
                             </div>
                         </div>
                     @else
-                        {{-- Gợi ý bước tiếp theo --}}
                         @if(!empty($transitions[$currentStatus]))
                         <div class="mb-4 text-xs text-indigo-600 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100 flex gap-2">
                             <i class="fa-regular fa-lightbulb mt-0.5"></i>
@@ -241,7 +315,6 @@
                         @csrf
                         @method('PUT')
                         
-                        {{-- A. SELECT TRẠNG THÁI --}}
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Trạng thái đơn hàng</label>
                             <div class="relative">
@@ -251,67 +324,31 @@
                                     
                                     @foreach($statusConfig as $key => $config)
                                         @php
-                                            // [MỚI] Ẩn hoàn toàn option "Trả hàng" nếu đơn hàng hiện tại không phải là trả hàng
-                                            if ($key === 'returned' && $currentStatus !== 'returned') {
-                                                continue; 
-                                            }
-
-                                            // 1. Kiểm tra logic Disable
+                                            if ($key === 'returned' && $currentStatus !== 'returned') continue; 
                                             $isCurrent = ($key === $currentStatus);
-                                            // Cho phép chọn nếu là status hiện tại HOẶC nằm trong danh sách chuyển đổi cho phép
                                             $isAllowed = $isCurrent || in_array($key, $transitions[$currentStatus] ?? []);
                                         @endphp
-
-                                        <option value="{{ $key }}" 
-                                                {{ $isCurrent ? 'selected' : '' }} 
-                                                {{ !$isAllowed ? 'disabled' : '' }}
-                                                class="{{ !$isAllowed ? 'bg-slate-100 text-slate-400' : 'font-bold text-slate-700' }}">
-                                            
+                                        <option value="{{ $key }}" {{ $isCurrent ? 'selected' : '' }} {{ !$isAllowed ? 'disabled' : '' }} class="{{ !$isAllowed ? 'bg-slate-100 text-slate-400' : 'font-bold text-slate-700' }}">
                                             {{ $config['icon'] }} {{ $config['label'] }} 
-                                            @if($isCurrent) (Hiện tại) @endif
-                                            @if(!$isAllowed && !$isCurrent) (Không khả dụng) @endif
                                         </option>
                                     @endforeach
                                 </select>
                             </div>
                         </div>
 
-                        {{-- B. SELECT THANH TOÁN --}}
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Thanh toán</label>
                             <select name="payment_status" id="select-payment" 
                                     class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2.5 font-medium text-slate-700 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                                     {{ $isOrderLocked ? 'disabled' : '' }}>
                                 
-                                {{-- Option: Chưa thanh toán (Khóa nếu đã Paid) --}}
-                                <option value="unpaid" 
-                                        {{ $order->payment_status == 'unpaid' ? 'selected' : '' }} 
-                                        {{ $isPaid ? 'disabled' : '' }}>
-                                    ⏳ Chưa thanh toán
-                                </option>
-                                
-                                {{-- Option: Đã thanh toán --}}
-                                <option value="paid" {{ $order->payment_status == 'paid' ? 'selected' : '' }}>
-                                    ✅ Đã thanh toán
-                                </option>
-                                
-                                {{-- Option: Hoàn tiền (Chỉ cho phép chọn nếu đơn bị Hủy hoặc Trả) --}}
-                                @php
-                                    $allowRefund = in_array($currentStatus, ['cancelled', 'returned']);
-                                @endphp
-                                <option value="refunded" 
-                                        {{ $order->payment_status == 'refunded' ? 'selected' : '' }} 
-                                        {{ !$allowRefund && $order->payment_status != 'refunded' ? 'disabled' : '' }}
-                                        class="{{ !$allowRefund ? 'bg-slate-100 text-slate-400' : '' }}">
-                                    ↩️ Hoàn tiền {{ !$allowRefund ? '(Chỉ khi Hủy/Trả)' : '' }}
-                                </option>
-
+                                <option value="unpaid" {{ $order->payment_status == 'unpaid' ? 'selected' : '' }} {{ $isPaid ? 'disabled' : '' }}>⏳ Chưa thanh toán</option>
+                                <option value="paid" {{ $order->payment_status == 'paid' ? 'selected' : '' }}>✅ Đã thanh toán</option>
+                                @php $allowRefund = in_array($currentStatus, ['cancelled', 'returned']); @endphp
+                                <option value="refunded" {{ $order->payment_status == 'refunded' ? 'selected' : '' }} {{ !$allowRefund && $order->payment_status != 'refunded' ? 'disabled' : '' }} class="{{ !$allowRefund ? 'bg-slate-100 text-slate-400' : '' }}">↩️ Hoàn tiền {{ !$allowRefund ? '(Chỉ khi Hủy/Trả)' : '' }}</option>
                             </select>
-                            
                             @if($isPaid && !$isOrderLocked)
-                                <p class="text-[10px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
-                                    <i class="fa-solid fa-check-circle"></i> Đã thanh toán (Không thể hoàn tác về chưa thanh toán).
-                                </p>
+                                <p class="text-[10px] text-emerald-600 mt-1 flex items-center gap-1 font-medium"><i class="fa-solid fa-check-circle"></i> Đã thanh toán (Không thể hoàn tác).</p>
                             @endif
                         </div>
 
@@ -361,39 +398,127 @@
                 </div>
             </div>
 
-            {{-- 7. CUSTOMER INFO --}}
+            {{-- 
+                7. [NÂNG CẤP] CUSTOMER INFO 
+                Logic cải tiến: Fallback tên, hiển thị email, copy clipboard, link tới User.
+            --}}
+            @php
+                // Logic định danh khách hàng an toàn
+                $customerUser = $order->user; // Relation user (nếu có)
+                
+                // 1. Tên: Ưu tiên tên người nhận -> Tên User -> Mặc định
+                $displayName = $order->receiver_name 
+                                ?? ($customerUser ? $customerUser->full_name : null) 
+                                ?? 'Khách vãng lai';
+
+                // 2. Email: Ưu tiên email order -> Email user -> Mặc định
+                $displayEmail = $order->receiver_email // Nếu DB có cột này
+                                ?? ($customerUser ? $customerUser->email : null)
+                                ?? 'Chưa cập nhật email';
+
+                // 3. Phone & Address
+                $displayPhone = $order->receiver_phone ?? 'N/A';
+                $displayAddress = $order->full_address ?? 'Chưa cập nhật địa chỉ';
+            @endphp
+
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h3 class="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100 flex items-center gap-2">
-                    <i class="fa-solid fa-user-circle text-indigo-500"></i> Khách hàng
+                <h3 class="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100 flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-user-circle text-indigo-500"></i> Khách hàng</span>
+                    
+                    {{-- Badge phân loại khách --}}
+                    @if($order->user_id)
+                        <span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">Thành viên</span>
+                    @else
+                        <span class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">Khách lẻ</span>
+                    @endif
                 </h3>
                 
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl font-bold text-indigo-600 uppercase">
-                        {{ substr($order->receiver_name, 0, 1) }}
-                    </div>
-                    <div>
-                        <div class="font-bold text-slate-800">{{ $order->receiver_name }}</div>
-                        <div class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded inline-block mt-1">
-                            {{ $order->user_id ? 'Thành viên' : 'Khách vãng lai' }}
+                {{-- A. Header Khách hàng --}}
+                <div class="flex items-start gap-4 mb-5">
+                    {{-- A. LOGIC XỬ LÝ ẢNH & INITIALS --}}
+                    @php
+                        $avatarSrc = null;
+                        if ($customerUser && !empty($customerUser->avatar_url)) {
+                            // Kiểm tra: Nếu là link online (http) thì giữ nguyên, nếu là path local thì thêm storage
+                            $avatarSrc = Str::startsWith($customerUser->avatar_url, ['http', 'https']) 
+                                        ? $customerUser->avatar_url 
+                                        : asset('storage/' . $customerUser->avatar_url);
+                        }
+
+                        // Lấy chữ cái đầu, in hoa (Hỗ trợ tiếng Việt)
+                        $initial = $displayName ? mb_strtoupper(mb_substr($displayName, 0, 1)) : 'K';
+                    @endphp
+
+                    {{-- B. HIỂN THỊ --}}
+                    @if($avatarSrc)
+                        {{-- Trường hợp 1: Có ảnh --}}
+                        <img src="{{ $avatarSrc }}" 
+                            alt="{{ $displayName }}" 
+                            class="w-12 h-12 rounded-full border border-slate-200 object-cover shadow-sm flex-shrink-0"
+                            {{-- Fallback: Nếu ảnh lỗi (404) thì ẩn ảnh đi và hiện avatar chữ cái (xử lý bằng JS inline đơn giản) --}}
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        
+                        {{-- Fallback ẩn (chỉ hiện khi ảnh trên bị lỗi load) --}}
+                        <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 items-center justify-center text-xl font-bold text-indigo-600 uppercase flex-shrink-0 hidden">
+                            {{ $initial }}
+                        </div>
+                    @else
+                        {{-- Trường hợp 2: Không có ảnh trong DB -> Hiện chữ cái --}}
+                        <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl font-bold text-indigo-600 uppercase flex-shrink-0 shadow-sm">
+                            {{ $initial }}
+                        </div>
+                    @endif
+                    
+                    <div class="overflow-hidden">
+                        {{-- Tên khách có link nếu là Member --}}
+                        @if($order->user_id)
+                            <a href="{{ route('admin.users.show', $order->user_id) }}" class="font-bold text-slate-800 hover:text-indigo-600 transition-colors block truncate" title="Xem chi tiết thành viên">
+                                {{ $displayName }} <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1 opacity-50"></i>
+                            </a>
+                        @else
+                            <div class="font-bold text-slate-800 truncate" title="{{ $displayName }}">
+                                {{ $displayName }}
+                            </div>
+                        @endif
+
+                        {{-- Email --}}
+                        <div class="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5" title="{{ $displayEmail }}">
+                            <i class="fa-regular fa-envelope"></i> {{ $displayEmail }}
                         </div>
                     </div>
                 </div>
 
-                <div class="space-y-4 text-sm">
-                    <div class="flex gap-3">
-                        <div class="w-6 flex-shrink-0 flex justify-center text-slate-400"><i class="fa-solid fa-phone"></i></div>
-                        <div>
-                            <p class="text-xs text-slate-400 font-bold uppercase">Điện thoại</p>
-                            <p class="font-medium text-slate-700">{{ $order->receiver_phone }}</p>
+                {{-- B. Chi tiết liên hệ (Grid layout) --}}
+                <div class="space-y-4 text-sm bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    {{-- Phone --}}
+                    <div class="flex gap-3 group">
+                        <div class="w-5 flex-shrink-0 flex justify-center text-slate-400 mt-0.5"><i class="fa-solid fa-phone"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Điện thoại</p>
+                            <div class="flex items-center justify-between">
+                                <p class="font-medium text-slate-700 font-mono text-base">{{ $displayPhone }}</p>
+                                <button onclick="copyToClipboard('{{ $displayPhone }}')" class="text-slate-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100" title="Copy SĐT">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex gap-3">
-                        <div class="w-6 flex-shrink-0 flex justify-center text-slate-400"><i class="fa-solid fa-location-dot"></i></div>
-                        <div>
-                            <p class="text-xs text-slate-400 font-bold uppercase">Địa chỉ giao hàng</p>
-                            <p class="font-medium text-slate-700 leading-relaxed">
-                                {{ $order->full_address }}
-                            </p>
+
+                    <hr class="border-slate-100 dashed">
+
+                    {{-- Address --}}
+                    <div class="flex gap-3 group">
+                        <div class="w-5 flex-shrink-0 flex justify-center text-slate-400 mt-0.5"><i class="fa-solid fa-location-dot"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Địa chỉ giao hàng</p>
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="font-medium text-slate-700 leading-relaxed text-xs md:text-sm">
+                                    {{ $displayAddress }}
+                                </p>
+                                <button onclick="copyToClipboard('{{ $displayAddress }}')" class="text-slate-400 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100 mt-0.5" title="Copy Địa chỉ">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -417,6 +542,17 @@
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/laravel-echo/dist/echo.iife.js"></script>
 <script>
+    // --- UTILS: COPY TO CLIPBOARD ---
+    function copyToClipboard(text) {
+        if (!text || text === 'N/A') return;
+        navigator.clipboard.writeText(text).then(() => {
+            // Có thể thêm toast notification ở đây nếu muốn
+            alert('Đã copy: ' + text); 
+        }).catch(err => {
+            console.error('Không thể copy text: ', err);
+        });
+    }
+
     // --- 1. SETUP ECHO ---
     const echo = new Echo({
         broadcaster: 'pusher',
@@ -435,7 +571,6 @@
             // A. Update Status Badge (Header)
             const statusBadge = document.getElementById('order-status-badge');
             if (statusBadge && data.status) {
-                // Map lại class giống PHP config để đồng bộ màu sắc
                 const statusMap = {
                     'pending':    { label: 'Chờ xử lý',      class: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
                     'processing': { label: 'Đang đóng gói',  class: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -485,8 +620,7 @@
                 }
             }
 
-            // D. Tự động reload trang sau 1.5s để cập nhật Logic Form (Disable/Enable các option mới)
-            // Vì khi đổi trạng thái, danh sách trạng thái tiếp theo hợp lệ sẽ thay đổi.
+            // D. Tự động reload trang sau 1.5s
             setTimeout(() => {
                 location.reload();
             }, 1500);

@@ -78,31 +78,77 @@
         {{-- B. THUMBNAILS (ẢNH NHỎ) --}}
         <div class="grid grid-cols-6 gap-2">
             
-            {{-- 1. Thumbnail của ảnh chính (ĐÃ SỬA: Dùng $mainImg) --}}
+            {{-- 1. Thumbnail của ảnh chính --}}
             <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
                     :class="activeImage === '{{ $mainImg }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
                     @click="activeImage = '{{ $mainImg }}'">
-                <img src="{{ $mainImg }}" class="w-full h-full object-cover mix-blend-multiply">
+                <img src="{{ $mainImg }}" class="w-full h-full object-cover mix-blend-multiply" alt="Main Image">
             </button>
 
-            {{-- 2. Các ảnh Gallery (Logic cũ của bạn đã đúng) --}}
+            {{-- 2. Các ảnh Gallery --}}
             @if($product->gallery_images)
                 @foreach($product->gallery_images as $img)
                     @php
                         $galleryUrl = asset('img/no-image.png');
-                        $cleanPath = ltrim($img->image_path, '/');
-                        if (str_contains($cleanPath, 'img/') && file_exists(public_path($cleanPath))) {
-                            $galleryUrl = asset($cleanPath);
-                        } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
-                            $galleryUrl = asset('storage/' . $cleanPath);
+                        // Lưu ý: Kiểm tra lại tên cột của gallery (thường là image_path hoặc image)
+                        $gPath = $img->image_path ?? $img->image; 
+
+                        if ($gPath) {
+                            $cleanPath = ltrim($gPath, '/');
+                            
+                            if (Str::startsWith($cleanPath, ['http://', 'https://'])) {
+                                $galleryUrl = $cleanPath;
+                            } elseif (file_exists(public_path($cleanPath))) {
+                                $galleryUrl = asset($cleanPath);
+                            } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+                                $galleryUrl = asset('storage/' . $cleanPath);
+                            } else {
+                                $galleryUrl = asset('storage/' . $cleanPath);
+                            }
                         }
                     @endphp
 
                     <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
                             :class="activeImage === '{{ $galleryUrl }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
                             @click="activeImage = '{{ $galleryUrl }}'">
-                        <img src="{{ $galleryUrl }}" class="w-full h-full object-cover mix-blend-multiply">
+                        <img src="{{ $galleryUrl }}" class="w-full h-full object-cover mix-blend-multiply" alt="Gallery">
                     </button>
+                @endforeach
+            @endif
+
+            {{-- 3. [CẬP NHẬT] Các ảnh từ biến thể (Variants) dùng cột image_url --}}
+            {{-- 3. Ảnh biến thể: CHỈ HIỆN KHI CÓ ẢNH THỰC TẾ --}}
+            @if($product->variants)
+                @foreach($product->variants as $variant)
+                    @if(!empty($variant->image_url)) 
+                        @php
+                            $vPath = ltrim($variant->image_url, '/'); 
+                            $variantUrl = null; // Mặc định là null để kiểm tra
+
+                            // 1. Link Online
+                            if (Str::startsWith($vPath, ['http://', 'https://'])) {
+                                $variantUrl = $vPath;
+                            }
+                            // 2. Ảnh trong Public (Kiểm tra file tồn tại thật không)
+                            elseif (str_contains($vPath, 'img/') && file_exists(public_path($vPath))) {
+                                $variantUrl = asset($vPath);
+                            } 
+                            // 3. Ảnh trong Storage (Kiểm tra file tồn tại thật không)
+                            elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($vPath)) {
+                                $variantUrl = asset('storage/' . $vPath);
+                            }
+                        @endphp
+
+                        {{-- CHỈ HIỂN THỊ NẾU TÌM THẤY URL HỢP LỆ --}}
+                        @if($variantUrl)
+                            <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4] group relative"
+                                    :class="activeImage === '{{ $variantUrl }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
+                                    @click="activeImage = '{{ $variantUrl }}'"
+                                    title="Phiên bản: {{ $variant->sku }}">
+                                <img src="{{ $variantUrl }}" class="w-full h-full object-cover mix-blend-multiply">
+                            </button>
+                        @endif
+                    @endif
                 @endforeach
             @endif
         </div>

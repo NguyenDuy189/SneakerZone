@@ -32,7 +32,7 @@ class ProductVariant extends Model
     // Thuộc về Product cha
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class, 'product_id');
     }
 
     // Quan hệ N-N với Attribute Values

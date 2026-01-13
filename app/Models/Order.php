@@ -71,7 +71,8 @@ class Order extends Model
      */
     public function items()
     {
-        return $this->hasMany(OrderItem::class);
+        // Quan hệ 1 Order có nhiều OrderItem
+        return $this->hasMany(OrderItem::class, 'order_id');
     }
 
     /**
@@ -79,7 +80,7 @@ class Order extends Model
      */
     public function histories()
     {
-        return $this->hasMany(OrderHistory::class)->orderBy('created_at', 'desc');
+        return $this->hasMany(OrderHistory::class)->orderBy('created_at', 'desc', 'order_id');
     }
 
     /**
@@ -95,9 +96,9 @@ class Order extends Model
      */
     public function transactions()
     {
-        return $this->hasMany(Transaction::class);
+        return $this->hasMany(Transaction::class, 'order_id');
     }
-
+    
     // ==============================
     //   ACCESSORS (HÀM BỔ TRỢ QUAN TRỌNG)
     // ==============================

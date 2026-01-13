@@ -62,52 +62,62 @@ class CheckoutController extends Controller
      ===================================================== */
     public function process(Request $request)
     {
+        
+        // 1. Validate dữ liệu
         $this->validateCheckout($request);
 
         DB::beginTransaction();
         try {
-            // 1. Lấy giỏ hàng (Giữ nguyên)
+            // 2. Lấy giỏ hàng & Check khóa (Lock)
             $cart = Cart::with(['items' => function($query) {
                     $query->where('is_selected', true);
                 }])
                 ->where('user_id', Auth::id())
-                ->lockForUpdate()
+                ->lockForUpdate() // Chống race condition khi nhiều người mua cùng lúc
                 ->firstOrFail();
 
-            if ($cart->items->isEmpty()) throw new Exception('Giỏ hàng trống.');
+            if ($cart->items->isEmpty()) {
+                throw new Exception('Giỏ hàng trống. Vui lòng chọn sản phẩm để thanh toán.');
+            }
 
-            // 2. Check tồn kho (Giữ nguyên)
-            // ... (Code check tồn kho giữ nguyên) ...
+            // 3. Kiểm tra tồn kho
+            foreach ($cart->items as $item) {
+                // Load biến thể để check stock
+                $variant = ProductVariant::find($item->product_variant_id);
+                if (!$variant || $variant->stock_quantity < $item->quantity) {
+                    throw new Exception("Sản phẩm " . ($variant->name ?? 'trong giỏ') . " hiện không đủ hàng.");
+                }
+            }
 
-            // 3. CHUẨN BỊ DỮ LIỆU (SỬA ĐOẠN NÀY)
+            // 4. CHUẨN BỊ DỮ LIỆU ĐỂ TẠO ORDER
             $shippingAddress = $this->resolveShippingAddress($request);
             
-            // Load lại quan hệ để lấy giá
+            // Load lại quan hệ product để lấy tên (Fix lỗi thiếu product_name)
             $cart->load(['items' => function($q) {
                 $q->where('is_selected', true)->with('variant.product');
             }]);
 
             $subtotal = $this->calculateSubtotal($cart);
-            
-            // --- SỬA: Tính lại discount lần cuối trước khi tạo đơn ---
             $discountAmount = $this->calculateDiscountAmount($cart, $subtotal);
-            
             $shippingFee = (int) session('shipping_fee', 0);
+            
+            // Đảm bảo không âm
             $totalAmount = max(0, $subtotal - $discountAmount + $shippingFee);
             $orderCode   = $this->generateOrderCode();
 
-            // 4. Tạo Order (SỬA: truyền discountAmount đã tính)
+            // 5. TẠO ORDER (Bảng cha)
             $order = Order::create([
                 'user_id'          => Auth::id(),
                 'order_code'       => $orderCode,
-                'status'           => 'pending',
+                'status'           => 'pending', // Trạng thái mặc định
                 'payment_status'   => 'unpaid',
                 'payment_method'   => $request->payment_method,
                 'subtotal'         => $subtotal,
-                'discount_amount'  => $discountAmount, // <--- Dùng biến mới
-                'discount_code'    => ($discountAmount > 0) ? $cart->discount_code : null, // <--- Lưu mã vào đơn
+                'discount_amount'  => $discountAmount,
+                'discount_code'    => ($discountAmount > 0) ? $cart->discount_code : null,
                 'shipping_fee'     => $shippingFee,
                 'total_amount'     => $totalAmount,
+                // Lưu JSON địa chỉ (snapshot)
                 'shipping_address' => json_encode([
                     'name'    => $request->customer_name,
                     'phone'   => $request->customer_phone,
@@ -117,40 +127,66 @@ class CheckoutController extends Controller
                 'note'             => $request->note,
             ]);
 
-            // 5. Tạo Order Items (Giữ nguyên)
-            // ... (Code tạo order items giữ nguyên) ...
+            // ==============================================================
+            // 6. TẠO ORDER ITEMS (FIX LỖI SKU & THUMBNAIL)
+            // ==============================================================
+            foreach ($cart->items as $cartItem) {
+                $variant = $cartItem->variant;
+                $product = $variant->product; 
 
-            // ===> 6. QUAN TRỌNG: TRỪ SỐ LƯỢNG MÃ GIẢM GIÁ (THÊM ĐOẠN NÀY) <===
+                // Giá ưu tiên: Sale > Gốc
+                $price = $variant->sale_price > 0 ? $variant->sale_price : $variant->original_price;
+
+                // Lấy ảnh: Ưu tiên ảnh biến thể -> ảnh sản phẩm -> ảnh mặc định
+                $thumbnail = $variant->image_url ?? $product->thumbnail ?? $product->image ?? 'no-image.png';
+
+                OrderItem::create([
+                    'order_id'             => $order->id,
+                    'product_variant_id'   => $variant->id,
+                    
+                    // 1. Cột bắt buộc có (theo lỗi bạn gặp)
+                    'product_name'         => $product->name,
+                    'sku'                  => $variant->sku,       // <--- THÊM DÒNG NÀY
+                    'thumbnail'            => $thumbnail,          // <--- THÊM DÒNG NÀY (Thường đi kèm SKU)
+                    
+                    // 2. Cột KHÔNG có trong DB (Bỏ đi)
+                    // 'product_variant_name' => $variant->name, 
+                    
+                    'quantity'             => $cartItem->quantity,
+                    'price'                => $price,
+                    'total_line'           => $price * $cartItem->quantity,
+                ]);
+            }
+
+            // 7. XỬ LÝ MÃ GIẢM GIÁ (Tăng lượt dùng)
             if ($discountAmount > 0 && $cart->discount_code) {
                 $coupon = \App\Models\Discount::where('code', $cart->discount_code)->first();
-                
-                // Logic: Tăng số lượng đã dùng (used_count) lên 1
                 if ($coupon) {
                     $coupon->increment('used_count'); 
                 }
             }
 
-            // 7. Xóa Item & Reset Cart
+            // 8. DỌN DẸP GIỎ HÀNG
             $cart->items()->where('is_selected', true)->delete();
-            
-            // Reset thông tin mã trong cart
             $cart->discount_code = null;
             $cart->save();
+            session()->forget(['shipping_fee']); 
 
-            session()->forget(['shipping_fee']); // Xóa session ship nếu có
-
-            // 8. Trừ kho sản phẩm (Giữ nguyên)
+            // 9. TRỪ KHO (Nếu thanh toán COD thì trừ luôn)
             if ($request->payment_method === 'cod') {
                 $this->deductStock($order);
             }
 
             DB::commit();
 
+            // Chuyển hướng thanh toán (VNPAY/MOMO hoặc trang thành công)
             return $this->dispatchPayment($order);
+
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error("CHECKOUT_PROCESS_ERROR: " . $e->getMessage());
-            return redirect()->route('client.checkouts.index')->with('error', $e->getMessage());
+            Log::error("CHECKOUT_ERROR: " . $e->getMessage());
+            // Trả về trang checkout với lỗi hiển thị
+            return redirect()->route('client.checkouts.index')->with('error', 'Lỗi xử lý: ' . $e->getMessage());
         }
     }
 
@@ -629,26 +665,58 @@ class CheckoutController extends Controller
      ===================================================== */
     private function validateCheckout(Request $request)
     {
+        // 1. Định nghĩa Rules (Luật kiểm tra)
         $rules = [
-            'customer_name'  => 'required|string|min:2|max:255',
-            'customer_email' => 'required|email',
-            'customer_phone' => ['required', 'regex:/^(0)[0-9]{9}$/'],
+            'customer_name'  => 'required|string|min:3|max:255',
+            'customer_email' => 'required|email|max:255',
+            'customer_phone' => ['required', 'regex:/^(0)[0-9]{9}$/'], // Bắt đầu bằng 0, tổng 10 số
             'payment_method' => 'required|in:cod,vnpay,momo,zalopay',
-            'address_id'     => 'required',
+            'address_id'     => 'required', // ID địa chỉ hoặc 'new'
+            'note'           => 'nullable|string|max:500', // Cho phép ghi chú, tối đa 500 ký tự
         ];
 
+        // 2. Định nghĩa Messages (Thông báo lỗi Tiếng Việt)
+        $messages = [
+            'customer_name.required'  => 'Vui lòng nhập họ tên người nhận.',
+            'customer_name.min'       => 'Tên người nhận phải có ít nhất 3 ký tự.',
+            'customer_name.max'       => 'Tên người nhận không được quá 255 ký tự.',
+            
+            'customer_email.required' => 'Vui lòng nhập địa chỉ email.',
+            'customer_email.email'    => 'Email không đúng định dạng.',
+            
+            'customer_phone.required' => 'Vui lòng nhập số điện thoại.',
+            'customer_phone.regex'    => 'Số điện thoại không hợp lệ (phải bắt đầu bằng số 0 và có 10 số).',
+            
+            'payment_method.required' => 'Vui lòng chọn phương thức thanh toán.',
+            'payment_method.in'       => 'Phương thức thanh toán hiện chưa được hỗ trợ.',
+            
+            'address_id.required'     => 'Vui lòng chọn địa chỉ giao hàng.',
+            'note.max'                => 'Ghi chú không được vượt quá 500 ký tự.',
+        ];
+
+        // 3. Logic kiểm tra địa chỉ mới (Nếu chọn "Địa chỉ khác")
         if ($request->address_id === 'new') {
-            $rules = array_merge($rules, [
-                'province_name'    => 'required',
-                'district_name'    => 'required',
-                'ward_name'        => 'required',
-                'specific_address' => 'required',
-            ]);
+            $newAddressRules = [
+                'province_name'    => 'required|string|max:100',
+                'district_name'    => 'required|string|max:100',
+                'ward_name'        => 'required|string|max:100',
+                'specific_address' => 'required|string|max:255',
+            ];
+
+            $newAddressMessages = [
+                'province_name.required'    => 'Vui lòng chọn Tỉnh/Thành phố.',
+                'district_name.required'    => 'Vui lòng chọn Quận/Huyện.',
+                'ward_name.required'        => 'Vui lòng chọn Phường/Xã.',
+                'specific_address.required' => 'Vui lòng nhập số nhà/tên đường cụ thể.',
+            ];
+
+            // Gộp luật và thông báo lại
+            $rules = array_merge($rules, $newAddressRules);
+            $messages = array_merge($messages, $newAddressMessages);
         }
-        $request->validate($rules, [
-            'customer_phone.regex' => 'Số điện thoại không hợp lệ.',
-            'payment_method.in'    => 'Phương thức thanh toán không hỗ trợ.'
-        ]);
+
+        // 4. Thực thi Validate
+        $request->validate($rules, $messages);
     }
 
     private function resolveShippingAddress(Request $request): string

@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
-use App\Events\OrderStatusUpdated;
 use App\Models\Order;
-use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +23,7 @@ class AccountController extends Controller
     {
         $user = Auth::user();
 
-        // Lấy 5 đơn hàng gần nhất
+        // Lấy 5 đơn hàng gần nhất (chỉ để hiển thị dashboard tóm tắt)
         $recentOrders = Order::query()
             ->where('user_id', $user->id)
             ->withCount('items')
@@ -59,10 +57,10 @@ class AccountController extends Controller
 
         // Validate dữ liệu
         $validated = $request->validate([
-            'full_name' => 'required|string|max:255', // Sửa từ name -> full_name
+            'full_name' => 'required|string|max:255',
             'phone'     => ['nullable', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:10'],
             'email'     => 'required|email|unique:users,email,' . $user->id,
-            'gender'    => 'nullable|in:male,female,other', // Giả sử giới tính lưu dạng này
+            'gender'    => 'nullable|in:male,female,other',
             'birthday'  => 'nullable|date',
             'address'   => 'nullable|string|max:255',
             'avatar'    => 'nullable|image|max:2048', // Tối đa 2MB
@@ -79,11 +77,10 @@ class AccountController extends Controller
         DB::beginTransaction();
 
         try {
-            // Chuẩn bị dữ liệu update (Mapping đúng tên cột DB)
             $updateData = [
                 'full_name' => $validated['full_name'],
                 'email'     => $validated['email'],
-                'phone'     => $validated['phone'] ?? null, // Cột db là phone
+                'phone'     => $validated['phone'] ?? null,
                 'gender'    => $validated['gender'] ?? null,
                 'birthday'  => $validated['birthday'] ?? null,
                 'address'   => $validated['address'] ?? null,
@@ -99,14 +96,12 @@ class AccountController extends Controller
 
             // 2. Xử lý upload avatar
             if ($request->hasFile('avatar')) {
-                // Xóa ảnh cũ nếu có và không phải ảnh mặc định
                 if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
                     Storage::disk('public')->delete($user->avatar);
                 }
                 $updateData['avatar'] = $request->file('avatar')->store('avatars', 'public');
             }
 
-            // Thực hiện update
             $user->update($updateData);
 
             DB::commit();
@@ -118,145 +113,5 @@ class AccountController extends Controller
             Log::error("Update Profile Error: " . $e->getMessage());
             return back()->with('error', 'Có lỗi xảy ra, vui lòng thử lại sau.');
         }
-    }
-
-    /**
-     * =========================
-     * 4. DANH SÁCH ĐƠN HÀNG
-     * =========================
-     */
-    public function orders()
-    {
-        $orders = Order::query()
-            ->where('user_id', Auth::id())
-            ->withCount('items')
-            ->with([
-                'shippingOrder.logs' => fn ($q) => $q->latest()->limit(1),
-            ])
-            ->latest()
-            ->paginate(10);
-
-        return view('client.account.orders', compact('orders'));
-    }
-
-    /**
-     * =========================
-     * 5. CHI TIẾT ĐƠN HÀNG
-     * =========================
-     */
-    public function orderDetail(int $id)
-    {
-        $order = Order::query()
-            ->where('id', $id)
-            ->where('user_id', Auth::id())
-            ->with([
-                'items.productVariant.product',
-                'transactions',
-                'shippingOrder.logs' => fn ($q) => $q->latest(),
-            ])
-            ->firstOrFail();
-
-        $timeline = $order->shippingOrder
-            ? $order->shippingOrder->logs
-            : collect();
-
-        return view('client.account.order_details', compact('order', 'timeline'));
-    }
-
-    /**
-     * =========================
-     * 6. HỦY ĐƠN HÀNG
-     * (Logic: pending/processing + hoàn tồn kho)
-     * =========================
-     */
-    public function cancelOrder(int $id)
-    {
-        // Tìm đơn hàng thuộc về user và trạng thái cho phép hủy
-        $order = Order::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->with('items') 
-            // Chỉ cho hủy khi chờ xử lý hoặc đang đóng gói (Tùy chính sách shop)
-            ->whereIn('status', ['pending', 'processing']) 
-            ->firstOrFail();
-
-        DB::beginTransaction();
-        try {
-            // A. Hoàn trả tồn kho
-            foreach ($order->items as $item) {
-                if ($item->product_variant_id) {
-                    $variant = ProductVariant::lockForUpdate()->find($item->product_variant_id);
-                    if ($variant) {
-                        $variant->increment('stock_quantity', $item->quantity);
-                    }
-                }
-            }
-
-            // B. Cập nhật trạng thái
-            $order->update([
-                'status' => 'cancelled'
-            ]);
-
-            // C. Ghi lịch sử
-            $history = $order->histories()->create([
-                'action' => 'cancelled',
-                'description' => 'Khách hàng chủ động hủy đơn',
-                'user_id' => Auth::id(),
-            ]);
-
-            DB::commit();
-
-            // D. Realtime Event
-            try {
-                $history->load('user');
-                event(new OrderStatusUpdated($order, 'cancelled', $history));
-            } catch (Exception $e) {
-                Log::error("Realtime Event Error: " . $e->getMessage());
-            }
-
-            return back()->with('success', 'Đơn hàng đã được hủy thành công.');
-
-        } catch (Exception $e) {
-            DB::rollBack();
-            Log::error("Cancel Order Error: " . $e->getMessage());
-            return back()->with('error', 'Có lỗi xảy ra khi hủy đơn hàng.');
-        }
-    }
-
-    /**
-     * =========================
-     * 7. ĐỔI PHƯƠNG THỨC THANH TOÁN
-     * =========================
-     */
-    public function changePaymentMethod(Request $request, int $id)
-    {
-        $request->validate([
-            'payment_method' => 'required|string',
-        ]);
-
-        $order = Order::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->where('payment_status', 'unpaid')
-            ->firstOrFail();
-
-        DB::transaction(function () use ($order, $request) {
-            $order->update([
-                'payment_method' => $request->payment_method
-            ]);
-
-            $history = $order->histories()->create([
-                'action' => 'payment_method_change',
-                'description' => 'Khách hàng đổi phương thức thanh toán',
-                'user_id' => Auth::id(),
-            ]);
-
-            // 🔥 REALTIME
-            event(new OrderStatusUpdated(
-                $order,
-                'payment_method_changed',
-                $history
-            ));
-        });
-
-        return back()->with('success', 'Đã cập nhật phương thức thanh toán');
     }
 }

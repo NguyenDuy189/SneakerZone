@@ -13,8 +13,8 @@ class OrderItem extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'order_id',
-        'product_variant_id',
+        'order_id', 
+        'product_variant_id', 
         'product_name',
         'sku',
         'thumbnail',

@@ -148,7 +148,7 @@
                                 </a>
 
                                 {{-- Link tới trang Đơn hàng --}}
-                                <a href="{{ route('client.account.orders') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+                                <a href="{{ route('client.account.orders.index') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
                                     Đơn hàng của tôi
                                 </a>
                                 
@@ -293,7 +293,7 @@
                                 </a>
 
                                 <div class="grid grid-cols-2 gap-2 mb-4">
-                                     <a href="{{ route('client.account.orders') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-3 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600">Đơn hàng</a>
+                                     <a href="{{ route('client.account.orders.index') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-3 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600">Đơn hàng</a>
                                      
                                      <a href="{{ route('client.wishlist.index') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-1 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600 truncate">
                                         Yêu thích
@@ -375,13 +375,33 @@
                     </ul>
                 </div>
 
-                {{-- Newsletter --}}
-                <div>
+                {{-- Newsletter Form --}}
+                <div class="newsletter-section">
                     <h4 class="font-bold text-lg mb-6 uppercase tracking-wider">Đăng ký nhận tin</h4>
                     <p class="text-slate-400 text-sm mb-4">Nhận thông tin về sản phẩm mới và khuyến mãi đặc biệt.</p>
-                    <form class="flex flex-col gap-2">
-                        <input type="email" placeholder="Email của bạn..." class="w-full px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm">
-                        <button class="w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition-colors">Đăng ký ngay</button>
+                    
+                    {{-- Form bắt đầu --}}
+                    <form action="{{ route('client.newsletter.subscribe') }}" method="POST" class="flex flex-col gap-2">
+                        @csrf {{-- Bắt buộc: Mã bảo mật Laravel --}}
+                        
+                        <div class="relative">
+                            <input type="email" 
+                                name="email" 
+                                required
+                                value="{{ old('email') }}"
+                                placeholder="Email của bạn..." 
+                                class="w-full px-4 py-2.5 rounded-lg bg-slate-800 border @error('email') border-rose-500 @else border-slate-700 @enderror text-white focus:outline-none focus:border-indigo-500 text-sm placeholder-slate-500">
+                            
+                            {{-- Hiển thị lỗi text ngay dưới input nếu có --}}
+                            @error('email')
+                                <p class="text-rose-500 text-xs mt-1 italic">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Quan trọng: type="submit" --}}
+                        <button type="submit" class="w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition-colors shadow-lg shadow-indigo-500/30">
+                            Đăng ký ngay
+                        </button>
                     </form>
                 </div>
             </div>
@@ -420,6 +440,51 @@
                 detail: { message: message, type: type } 
             }));
         }
+    </script>
+
+    {{-- 2. Script xử lý thông báo --}}
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            
+            // --- TRƯỜNG HỢP 1: THÀNH CÔNG ---
+            @if(session('success'))
+                Swal.fire({
+                    title: 'Thành công!',
+                    text: "{{ session('success') }}",
+                    icon: 'success',
+                    confirmButtonColor: '#4f46e5', // Màu tím indigo
+                    confirmButtonText: 'Tuyệt vời',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            @endif
+
+            // --- TRƯỜNG HỢP 2: CÓ LỖI (Backend trả về) ---
+            @if(session('error'))
+                Swal.fire({
+                    title: 'Rất tiếc!',
+                    text: "{{ session('error') }}",
+                    icon: 'error',
+                    confirmButtonColor: '#e11d48',
+                    confirmButtonText: 'Thử lại'
+                });
+            @endif
+
+            // --- TRƯỜNG HỢP 3: LỖI VALIDATION (VD: Email sai định dạng) ---
+            @if($errors->any())
+                let errorMsg = '';
+                @foreach($errors->all() as $error)
+                    errorMsg += '{{ $error }}\n';
+                @endforeach
+                
+                Swal.fire({
+                    title: 'Kiểm tra lại dữ liệu',
+                    text: errorMsg,
+                    icon: 'warning',
+                    confirmButtonColor: '#f59e0b'
+                });
+            @endif
+        });
     </script>
 </body>
 </html>

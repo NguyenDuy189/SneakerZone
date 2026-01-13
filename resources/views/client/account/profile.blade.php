@@ -34,7 +34,7 @@
             <a href="{{ route('client.account.profile') }}" class="flex-1 py-3 px-6 text-center rounded-lg text-sm font-bold transition-all bg-slate-900 text-white shadow-md">
                 Thông tin cá nhân
             </a>
-            <a href="{{ route('client.account.orders') }}" class="flex-1 py-3 px-6 text-center rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-indigo-600 hover:bg-indigo-50">
+            <a href="{{ route('client.account.orders.index') }}" class="flex-1 py-3 px-6 text-center rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-indigo-600 hover:bg-indigo-50">
                 Lịch sử đơn hàng
             </a>
         </div>

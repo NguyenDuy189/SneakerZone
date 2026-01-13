@@ -187,6 +187,10 @@
                                     <a href="{{ route('admin.users.edit', $user->id) }}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
+                                    {{-- Nút Xem Chi Tiết --}}
+                                    <a href="{{ route('admin.users.show', $user->id) }}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-600 hover:text-white transition-all shadow-sm" title="Xem chi tiết">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </a>
                                 @endif
 
                                 {{-- Nút Xóa: 

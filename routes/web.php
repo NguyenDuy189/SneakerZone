@@ -20,6 +20,9 @@ use App\Http\Controllers\Client\PageController;
 use App\Http\Controllers\Client\ProductSaleController;
 use App\Http\Controllers\Client\OrderController as ClientOrderController;
 use App\Http\Controllers\Client\WishlistController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SimpleNewsletter;
 
 
 
@@ -87,33 +90,51 @@ Route::name('client.')->group(function () {
     // 3. KHU VỰC CẦN ĐĂNG NHẬP (Middleware: auth)
     Route::middleware(['auth'])->group(function () {
 
-        // --- ACCOUNT & PROFILE ---
-        Route::controller(AccountController::class)
-            ->prefix('account')
-            ->name('account.')
-            ->group(function () {
+        Route::prefix('account')->name('account.')->group(function () {
 
-                // Kết quả: client. + account. + profile = client.account.profile
+            // =========================================================
+            // 1. NHÓM PROFILE (AccountController)
+            // =========================================================
+            Route::controller(AccountController::class)->group(function () {
+                // URL: /account/profile
+                // Name: client.account.profile
                 Route::get('/profile', 'index')->name('profile');
 
-                // Kết quả: client. + account. + edit = client.account.edit (KHỚP LỖI CỦA BẠN)
+                // URL: /account/profile/edit
+                // Name: client.account.edit
                 Route::get('/profile/edit', 'edit')->name('edit');
 
-                // Kết quả: client. + account. + update
+                // URL: /account/profile/update
+                // Name: client.account.update
                 Route::post('/profile/update', 'updateProfile')->name('update');
-
-                // Orders
-                Route::get('/orders', 'orders')->name('orders');
-                Route::get('/orders/{id}', 'orderDetail')->name('order_details');
-                Route::patch('/orders/{id}/payment-method', 'changePaymentMethod')->name('orders.change_payment');
             });
 
-        // --- 2. ROUTE HỦY ĐƠN ---
-        // Vì route này dùng Controller khác, nên để riêng ra
-        // Nhưng vẫn nằm trong nhóm 'client.' tổng, nên ta đặt tên là 'account.orders.cancel'
-        // Kết quả: client. + account.orders.cancel = client.account.orders.cancel
-        Route::patch('/account/orders/cancel/{id}', [ClientOrderController::class, 'cancel'])
-            ->name('account.orders.cancel');
+            // =========================================================
+            // 2. NHÓM ORDERS (OrderController)
+            // =========================================================
+            Route::controller(ClientOrderController::class)
+                ->prefix('orders')      // URL nối tiếp: /account/orders...
+                ->name('orders.')       // Name nối tiếp: client.account.orders.index...
+                ->group(function () {
+
+                    // URL: /account/orders
+                    // Name: client.account.orders.index
+                    // (Mặc định gọi 'client.account.orders.index' sẽ vào đây)
+                    Route::get('/', 'index')->name('index');
+
+                    // URL: /account/orders/{id}
+                    // Name: client.account.orders.show (Thay cho order_details cho chuẩn RESTful)
+                    Route::get('/{id}', 'show')->name('show');
+
+                    // URL: /account/orders/cancel/{id}
+                    // Name: client.account.orders.cancel
+                    Route::patch('/cancel/{id}', 'cancel')->name('cancel');
+
+                    // URL: /account/orders/payment-method/{id}
+                    // Name: client.account.orders.index.payment_method
+                    Route::post('/payment-method/{id}', 'changePaymentMethod')->name('payment_method');
+                });
+        });
 
         // --- CART ---
         Route::controller(CartController::class)->prefix('cart')->name('carts.')->group(function () {
@@ -169,6 +190,32 @@ Route::prefix('page')->name('client.page.')->controller(PageController::class)->
     Route::get('/tim-cua-hang', 'stores')->name('stores');
     Route::get('/tin-tuc', 'news')->name('news');
 });
+
+// routes/web.php
+
+Route::post('/newsletter/subscribe', function (Request $request) {
+    // 1. Validate: Bắt buộc phải nhập email đúng định dạng
+    $request->validate([
+        'email' => 'required|email'
+    ], [
+        'email.required' => 'Vui lòng nhập địa chỉ email.',
+        'email.email' => 'Địa chỉ email không hợp lệ.',
+    ]);
+
+    try {
+        // 2. Gửi mail
+        // Nếu chưa tạo Class Mail, xem Bước 2 bên dưới
+        Mail::to($request->email)->send(new SimpleNewsletter());
+
+        // 3. Trả về thông báo thành công
+        return back()->with('success', 'Đăng ký thành công! Hãy kiểm tra email của bạn.');
+        
+    } catch (\Exception $e) {
+        // Trả về lỗi nếu gửi mail thất bại (do mạng hoặc cấu hình .env sai)
+        return back()->withErrors(['email' => 'Lỗi gửi mail: ' . $e->getMessage()])->withInput();
+    }
+
+})->name('client.newsletter.subscribe'); // <--- QUAN TRỌNG: Tên này phải khớp với action trong form
 
 
 /*

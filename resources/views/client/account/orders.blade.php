@@ -92,58 +92,53 @@
                         </div>
 
                         {{-- CARD BODY --}}
+                        {{-- CARD BODY (PHIÊN BẢN GỌN - KHÔNG ẢNH) --}}
                         <div class="p-6">
-                            <div class="flex flex-col md:flex-row items-center gap-6">
-                                {{-- Ảnh sản phẩm --}}
-                                <div class="flex -space-x-3 overflow-hidden py-1 pl-1">
-                                    @foreach($order->items->take(3) as $item)
-                                        @php
-                                            $imgSrc = asset('images/no-image.png');
-                                            // Logic lấy ảnh an toàn
-                                            if($item->variant && $item->variant->image) $imgSrc = Storage::url($item->variant->image);
-                                            elseif($item->product && $item->product->image) $imgSrc = Storage::url($item->product->image);
-                                            elseif(isset($item->productVariant) && $item->productVariant->image) $imgSrc = Storage::url($item->productVariant->image); // Support old model
-                                        @endphp
-                                        <div class="w-16 h-16 rounded-lg border-2 border-white shadow-sm bg-slate-100 overflow-hidden relative" title="{{ $item->product_name }}">
-                                            <img src="{{ $imgSrc }}" class="w-full h-full object-cover">
-                                            <span class="absolute bottom-0 right-0 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-tl-md backdrop-blur-sm">
-                                                x{{ $item->quantity }}
-                                            </span>
+                            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                                
+                                {{-- 1. Thông tin tóm tắt (Thay thế cho phần ảnh) --}}
+                                <div class="flex-1 w-full md:w-auto">
+                                    <div class="flex items-center gap-4 mb-3">
+                                        <div class="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                            <i class="fa-solid fa-bag-shopping text-xl"></i>
                                         </div>
-                                    @endforeach
-                                    
-                                    @php $count = $order->items_count ?? $order->items->count(); @endphp
-                                    @if($count > 3)
-                                        <div class="w-16 h-16 rounded-lg border-2 border-white shadow-sm bg-slate-50 flex items-center justify-center text-xs font-bold text-slate-500">
-                                            +{{ $count - 3 }}
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-700">
+                                                {{ $order->items_count ?? $order->items->count() }} sản phẩm
+                                            </p>
+                                            <p class="text-xs text-slate-500">
+                                                {{-- Lấy tên sản phẩm đầu tiên làm ví dụ --}}
+                                                {{ $order->items->first()->product_name ?? 'Sản phẩm...' }} 
+                                                @if(($order->items_count ?? $order->items->count()) > 1)
+                                                    và các sản phẩm khác...
+                                                @endif
+                                            </p>
                                         </div>
-                                    @endif
+                                    </div>
                                 </div>
 
-                                {{-- Thông tin tiền --}}
-                                <div class="flex-1 w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-4 md:pt-0 mt-4 md:mt-0 grid grid-cols-2 md:block gap-4">
+                                {{-- 2. Thông tin tiền & Thanh toán (Giữ nguyên) --}}
+                                <div class="w-full md:w-auto border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6 grid grid-cols-2 md:block gap-4 min-w-[200px]">
                                     <div>
-                                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Tổng tiền</p>
+                                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Tổng thanh toán</p>
                                         <p class="text-xl font-black text-slate-800">
                                             {{ number_format($order->total_money ?? $order->total_amount ?? 0, 0, ',', '.') }}đ
                                         </p>
                                     </div>
                                     <div class="md:mt-3">
-                                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Thanh toán</p>
-                                        <p class="text-sm font-bold text-slate-600">{{ $methodText }}</p>
+                                        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Hình thức</p>
+                                        <p class="text-sm font-bold text-slate-600 truncate">{{ $methodText }}</p>
                                     </div>
                                 </div>
 
-                                {{-- BUTTONS --}}
+                                {{-- 3. BUTTONS (Giữ nguyên) --}}
                                 <div class="flex flex-col gap-3 w-full md:w-auto min-w-[170px]">
-                                    {{-- Nút Xem Chi Tiết --}}
-                                    <a href="{{ route('client.account.order_details', $order->id) }}" 
+                                    <a href="{{ route('client.account.orders.show', $order->id) }}" 
                                        class="w-full text-center bg-white border border-slate-200 text-slate-700 hover:border-indigo-600 hover:text-indigo-600 font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 group text-sm">
                                         Xem chi tiết
                                         <i class="fa-solid fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
                                     </a>
 
-                                    {{-- Nút Hủy (Modal) --}}
                                     @if(in_array($order->status, ['pending', 'processing']))
                                         <button type="button"
                                             onclick="openCancelModal('{{ route('client.account.orders.cancel', $order->id) }}')" 
@@ -152,6 +147,7 @@
                                         </button>
                                     @endif
                                 </div>
+
                             </div>
                         </div>
                     </div>

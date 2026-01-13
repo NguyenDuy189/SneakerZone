@@ -305,12 +305,27 @@
             <h2 class="text-3xl md:text-5xl font-black text-white uppercase mb-4 tracking-tight">Đừng bỏ lỡ ưu đãi!</h2>
             <p class="text-slate-300 mb-8 text-lg">Đăng ký nhận tin để nhận mã giảm giá <span class="text-indigo-400 font-bold">10%</span> cho đơn hàng đầu tiên và cập nhật sản phẩm mới nhất.</p>
             
-            <form class="flex flex-col sm:flex-row gap-3">
-                <input type="email" placeholder="Nhập email của bạn..." class="flex-1 px-6 py-4 rounded-full bg-white/10 border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/20 transition-all">
-                <button type="button" class="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full transition-all shadow-lg hover:shadow-indigo-500/50">
+            {{-- Thêm Action và Method --}}
+            <form action="{{ route('client.newsletter.subscribe') }}" method="POST" class="flex flex-col sm:flex-row gap-3">
+                @csrf {{-- Token bảo mật --}}
+                
+                <input type="email" 
+                    name="email" {{-- Quan trọng: Phải có name="email" --}}
+                    required
+                    placeholder="Nhập email của bạn..." 
+                    class="flex-1 px-6 py-4 rounded-full bg-white/10 border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/20 transition-all">
+                
+                {{-- Quan trọng: Đổi type="button" thành type="submit" --}}
+                <button type="submit" class="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full transition-all shadow-lg hover:shadow-indigo-500/50">
                     Đăng ký ngay
                 </button>
             </form>
+
+            {{-- Hiển thị lỗi nhanh nếu người dùng nhập sai định dạng --}}
+            @error('email')
+                <p class="text-rose-400 text-xs mt-2 ml-4 italic">{{ $message }}</p>
+            @enderror
+
             <p class="text-xs text-slate-500 mt-4">*Chúng tôi cam kết bảo mật thông tin của bạn.</p>
         </div>
     </section>
