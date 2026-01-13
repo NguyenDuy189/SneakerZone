@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
+use Exception;
+
 
 class CartController extends Controller
 {
@@ -59,110 +61,120 @@ class CartController extends Controller
      */
     public function addToCart(Request $request)
     {
-        // 1. Validate dữ liệu đầu vào
+        // 1. Validate
         $request->validate([
             'product_variant_id' => 'required|integer|exists:product_variants,id',
-            'quantity' => 'required|integer|min:1'
+            'quantity'           => 'required|integer|min:1'
         ]);
 
         DB::beginTransaction();
         try {
-            // 2. Lấy giỏ hàng hiện tại (Hàm này của bạn đã có sẵn)
+            // 2. Lấy giỏ hàng
             $cart = $this->getCart();
 
-            // 3. Tìm biến thể sản phẩm & KHÓA DÒNG (Lock for update)
-            // Việc này ngăn chặn 2 người mua cùng lúc khi kho chỉ còn 1 cái
-            $variant = ProductVariant::with('product') // Load thêm quan hệ product để lấy tên
-                ->lockForUpdate() 
+            // 3. Tìm biến thể & Lock
+            $variant = ProductVariant::with('product')
+                ->lockForUpdate()
                 ->find($request->product_variant_id);
 
             if (!$variant) {
-                throw new \Exception('Sản phẩm không tồn tại hoặc đã bị xóa.');
+                throw new \Exception('Sản phẩm không tồn tại.', 404);
             }
 
-            $productName = $variant->product->name ?? 'Sản phẩm';
-            $variantName = $variant->name ?? ''; // Ví dụ: Size L, Màu Đỏ
-            $fullName = trim("$productName $variantName");
-
-            // 4. Kiểm tra tồn kho thực tế
-            $currentStock = $variant->stock_quantity ?? 0;
+            // 4. Check tồn kho
+            $currentStock = (int) $variant->stock_quantity;
             
-            // Lấy số lượng hiện có trong giỏ của khách này
             $existingItem = CartItem::where('cart_id', $cart->id)
                 ->where('product_variant_id', $variant->id)
                 ->first();
 
-            $currentQtyInCart = $existingItem ? $existingItem->quantity : 0;
-            $requestedQty = $request->quantity;
-            $totalQty = $currentQtyInCart + $requestedQty;
+            $currentQtyInCart = $existingItem ? (int)$existingItem->quantity : 0;
+            $requestedQty     = (int) $request->quantity;
+            $totalQty         = $currentQtyInCart + $requestedQty;
 
-            // Logic check tồn kho: Tổng mua + Trong giỏ > Tồn kho
             if ($totalQty > $currentStock) {
-                $availableToAdd = $currentStock - $currentQtyInCart;
-                $msg = $availableToAdd > 0 
-                    ? "Bạn chỉ có thể thêm tối đa $availableToAdd sản phẩm nữa."
-                    : "Sản phẩm này đã hết hàng hoặc bạn đã thêm hết số lượng vào giỏ.";
-                
-                throw new \Exception($msg);
+                $availableToAdd = max(0, $currentStock - $currentQtyInCart);
+                $msg = $availableToAdd <= 0 
+                    ? "Bạn đã đạt giới hạn số lượng cho phép của sản phẩm này." 
+                    : "Kho chỉ còn {$availableToAdd} sản phẩm.";
+                throw new \Exception($msg, 422);
             }
 
-            // 5. Thêm hoặc Cập nhật giỏ hàng
+            // 5. Save DB
             if ($existingItem) {
                 $existingItem->quantity = $totalQty;
                 $existingItem->save();
             } else {
                 CartItem::create([
-                    'cart_id' => $cart->id,
+                    'cart_id'            => $cart->id,
                     'product_variant_id' => $variant->id,
-                    'quantity' => $requestedQty,
-                    'is_selected' => 1 // Mặc định chọn để mua
+                    'quantity'           => $requestedQty,
+                    'is_selected'        => 1
                 ]);
             }
-
-            // 6. Tính toán lại tổng tiền (nếu cần cập nhật cache hoặc logic khác)
-            // $this->calculateCartTotals($cart); 
 
             DB::commit();
 
-            // 7. Chuẩn bị thông điệp và Link
-            $message = "Đã thêm '$fullName' vào giỏ hàng!";
-            $actionUrl = route('client.carts.index'); // Route xem giỏ hàng
-            $actionText = "Xem giỏ hàng";
-
-            // 8. TRẢ VỀ KẾT QUẢ (Dual Response Strategy)
+            $productName = $variant->product->name ?? 'Sản phẩm';
+            $variantName = $variant->name ?? '';
             
-            // Trường hợp A: Gọi bằng AJAX / Fetch / Axios (JS)
+            // 1. Logic lấy tên file ảnh từ DB
+            // Ưu tiên 1: Ảnh riêng của biến thể (thường là cột 'image' trong bảng product_variants)
+            // Ưu tiên 2: Ảnh đại diện sản phẩm (cột 'thumbnail' trong bảng products) <--- SỬA Ở ĐÂY
+            $rawImage = $variant->image ?: ($variant->product->thumbnail ?? null);
+            
+            // 2. Mặc định là no-image
+            $imageUrl = asset('img/no-image.png'); 
+
+            if (!empty($rawImage)) {
+                // Nếu là link online (http...)
+                if (filter_var($rawImage, FILTER_VALIDATE_URL)) {
+                    $imageUrl = $rawImage;
+                } 
+                else {
+                    // Xử lý đường dẫn nội bộ (Bỏ qua file_exists để tránh lỗi môi trường)
+                    
+                    // Bước 1: Xóa các ký tự thừa
+                    $cleanPath = ltrim($rawImage, '/'); // Xóa dấu / ở đầu
+                    $cleanPath = str_replace('storage/', '', $cleanPath); // Xóa chữ storage/ nếu lỡ lưu thừa trong DB
+                    
+                    // Bước 2: Tạo URL
+                    // Kết quả: http://domain/storage/ten-anh.jpg
+                    $imageUrl = asset('storage/' . $cleanPath);
+                }
+            }
+            // --- [END FIX] ---
+
+            $cartCount = $cart->items()->sum('quantity');
+
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
-                    'status' => 'success',
-                    'message' => $message,
-                    'cart_count' => $cart->items()->sum('quantity'), // Cập nhật số trên icon giỏ hàng
-                    'toast' => [ // Dữ liệu để frontend hiện Toast
-                        'type' => 'success',
-                        'message' => $message,
-                        'actionUrl' => $actionUrl,
-                        'actionText' => $actionText
+                    'success' => true,
+                    'message' => "Thêm thành công!",
+                    'data'    => [
+                        'cart_count'   => $cartCount,
+                        'image'        => $imageUrl,
+                        'product_name' => $productName,
+                        'variant_name' => $variantName,
                     ]
-                ]);
+                ], 200);
             }
 
-            // Trường hợp B: Form Submit thông thường (Load lại trang)
-            return redirect()->back()
-                ->with('success', $message)
-                ->with('action_url', $actionUrl)
-                ->with('action_text', $actionText);
+            return redirect()->back()->with('success', "Đã thêm vào giỏ hàng!");
 
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            $errorCode = $e->getCode();
+            $httpCode = ($errorCode >= 400 && $errorCode < 600) ? $errorCode : 500;
+            if ($errorCode == 422) $httpCode = 422;
 
-            // Xử lý lỗi cho 2 trường hợp
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
-                    'status' => 'error',
+                    'success' => false,
                     'message' => $e->getMessage()
-                ], 422);
+                ], $httpCode);
             }
-
             return redirect()->back()->with('error', $e->getMessage());
         }
     }

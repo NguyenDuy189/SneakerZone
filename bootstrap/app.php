@@ -31,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Mặc định chuyển về Client Login (Kiểm tra xem bạn đã đặt tên route này chưa)
             // Nếu route client của bạn tên khác, hãy sửa lại 'client.login' bên dưới
-            return route('client.login'); 
+            return route('login'); 
         });
     })
     ->withExceptions(function (Exceptions $exceptions) {
@@ -50,7 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     return redirect()->route('admin.login')->withErrors(['email' => $msg]);
                 }
 
-                return redirect()->route('client.login')->withErrors(['email' => $msg]);
+                return redirect()->route('login')->withErrors(['email' => $msg]);
             }
         });
 

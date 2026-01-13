@@ -297,93 +297,201 @@
 </style>
 
 <script>
-    // 1. Cấu hình TomSelect (AJAX + Preload Focus)
+    /**
+     * ==========================================
+     * UTILITIES: CÁC HÀM TIỆN ÍCH DÙNG CHUNG
+     * ==========================================
+     */
+    const Utils = {
+        /**
+         * Format tiền tệ thông minh (Hỗ trợ tự động nhân triệu & sửa lỗi input)
+         * @param {string|number} value - Giá trị đầu vào
+         * @returns {string} - Chuỗi đã format (VD: 3.200.000)
+         */
+        formatCurrency: function(value) {
+            if (value === null || value === undefined || value === '') return '0';
+
+            // 1. Làm sạch dữ liệu: Chuyển về chuỗi và chỉ giữ lại số + dấu chấm thập phân
+            let str = String(value).replace(/[^0-9.]/g, ''); 
+            let number = parseFloat(str);
+
+            if (isNaN(number)) return '0';
+
+            // 2. Logic nghiệp vụ: Tự động phát hiện đơn vị "Triệu" (số < 10.000)
+            // Ngưỡng 10.000 là an toàn vì không có sản phẩm nào giá < 10k
+            if (number > 0 && number < 10000) {
+                number = number * 1000000;
+            }
+
+            // 3. Làm tròn và format chuẩn Việt Nam
+            return new Intl.NumberFormat('vi-VN').format(Math.round(number));
+        },
+
+        /**
+         * Xác định trạng thái tồn kho để hiển thị class màu sắc
+         * @param {number} stock 
+         */
+        getStockStatus: function(stock) {
+            return stock > 0 
+                ? { class: 'text-emerald-600 bg-emerald-50 border-emerald-100', label: 'Sẵn hàng' }
+                : { class: 'text-rose-600 bg-rose-50 border-rose-100', label: 'Hết hàng' };
+        }
+    };
+
+    /**
+     * ==========================================
+     * COMPONENT: TOMSELECT (TÌM KIẾM SẢN PHẨM)
+     * ==========================================
+     */
     new TomSelect("#select-product", {
         valueField: 'id',
         labelField: 'text',
         searchField: 'text',
-        preload: 'focus', 
+        preload: 'focus', // Tải dữ liệu ngay khi click vào ô input
+        maxOptions: 50,   // Giới hạn số lượng gợi ý để tối ưu render
         
+        // Gọi API tìm kiếm
         load: function(query, callback) {
-            var url = '{{ route("admin.flash_sales.product_search") }}?q=' + encodeURIComponent(query);
+            const url = '{{ route("admin.flash_sales.product_search") }}?q=' + encodeURIComponent(query);
             fetch(url)
                 .then(response => response.json())
-                .then(json => {
-                    callback(json);
-                }).catch(()=>{
-                    callback();
-                });
+                .then(json => callback(json))
+                .catch(() => callback());
         },
-        placeholder: 'Bấm để tìm kiếm...',
         
+        placeholder: 'Nhập tên sản phẩm hoặc mã SKU...',
+        
+        // Sự kiện: Khi chọn sản phẩm
         onChange: function(value) {
-            if(value) {
-                var data = this.options[value];
-                var formattedPrice = new Intl.NumberFormat('vi-VN').format(data.original_price);
+            const infoBox = document.getElementById('product-info');
+            
+            if (value) {
+                const data = this.options[value];
                 
-                document.getElementById('info-price').innerText = formattedPrice;
+                // Cập nhật UI
+                document.getElementById('info-price').innerText = Utils.formatCurrency(data.original_price);
                 document.getElementById('info-stock').innerText = data.stock;
                 
-                // Hiệu ứng hiển thị mượt mà
-                var infoBox = document.getElementById('product-info');
+                // Hiển thị Box thông tin với hiệu ứng
                 infoBox.classList.remove('hidden');
-                infoBox.classList.add('animate-fade-in-down'); // Thêm class animation nếu có
+                infoBox.classList.add('animate-fade-in-down');
             } else {
-                document.getElementById('product-info').classList.add('hidden');
+                // Ẩn Box thông tin nếu xóa chọn
+                infoBox.classList.add('hidden');
             }
         },
 
+        // Tùy chỉnh giao diện hiển thị (Custom Render)
         render: {
+            // 1. Giao diện từng dòng trong danh sách gợi ý
             option: function(item, escape) {
-                var formattedPrice = new Intl.NumberFormat('vi-VN').format(item.original_price);
-                var stockClass = item.stock > 0 ? 'text-green-600' : 'text-red-600';
-                var stockLabel = item.stock > 0 ? 'Sẵn hàng' : 'Hết hàng';
+                const priceDisplay = Utils.formatCurrency(item.original_price);
+                const stockStatus = Utils.getStockStatus(item.stock);
                 
-                return `<div class="py-2.5 px-3 border-b border-gray-100 hover:bg-indigo-50 cursor-pointer">
-                            <div class="flex justify-between items-start">
-                                <span class="font-medium text-gray-800 text-sm truncate pr-2">${escape(item.text)}</span>
-                            </div>
-                            <div class="flex justify-between mt-1.5 text-xs">
-                                <span class="text-gray-500">Giá: <span class="font-semibold text-gray-700">${formattedPrice} đ</span></span>
-                                <span class="text-gray-500">Kho: <span class="font-bold ${stockClass}">${item.stock}</span></span>
-                            </div>
-                        </div>`;
+                return `
+                    <div class="py-3 px-4 border-b border-gray-100 hover:bg-indigo-50 cursor-pointer group transition-colors">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-semibold text-gray-800 text-sm truncate pr-2 group-hover:text-indigo-700 transition-colors">
+                                ${escape(item.text)}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center mt-1.5 text-xs">
+                            <span class="text-gray-600 flex items-center">
+                                <i class="fa-solid fa-tag mr-1.5 text-indigo-400"></i>
+                                <span class="font-bold text-gray-900">${priceDisplay} ₫</span>
+                            </span>
+                            <span class="px-2.5 py-0.5 rounded-full font-medium border ${stockStatus.class}">
+                                Kho: ${item.stock}
+                            </span>
+                        </div>
+                    </div>
+                `;
             },
+            
+            // 2. Giao diện khi đã chọn (hiển thị trong ô input)
             item: function(item, escape) {
-                return `<div class="font-medium text-gray-800">${escape(item.text)}</div>`;
+                return `
+                    <div class="font-medium text-gray-800 flex items-center py-1">
+                        <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-xs">
+                            <i class="fa-solid fa-check"></i>
+                        </span>
+                        ${escape(item.text)}
+                    </div>
+                `;
             },
+            
+            // 3. Khi không tìm thấy kết quả
             no_results: function(data, escape) {
-                return '<div class="no-results p-3 text-sm text-gray-500">Không tìm thấy sản phẩm phù hợp</div>';
+                return `
+                    <div class="no-results p-6 text-center text-sm text-gray-500">
+                        <i class="fa-solid fa-magnifying-glass text-2xl mb-2 text-gray-300 block"></i>
+                        Không tìm thấy sản phẩm phù hợp
+                    </div>
+                `;
             },
+            
+            // 4. Khi đang tải dữ liệu
             loading: function(data, escape) {
-                return '<div class="spinner p-3 text-sm text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu...</div>';
+                return `
+                    <div class="spinner p-4 text-sm text-gray-500 text-center flex items-center justify-center">
+                        <i class="fa-solid fa-circle-notch fa-spin mr-2 text-indigo-500 text-lg"></i>
+                        Đang đồng bộ dữ liệu...
+                    </div>
+                `;
             }
         }
     });
 
-    // 2. Logic Modal
+    /**
+     * ==========================================
+     * COMPONENT: EDIT MODAL (CHỈNH SỬA)
+     * ==========================================
+     */
+    const EditModal = {
+        element: document.getElementById('editModal'),
+        form: document.getElementById('editForm'),
+        inputs: {
+            price: document.getElementById('modal_price'),
+            quantity: document.getElementById('modal_quantity')
+        },
+
+        open: function(itemId, price, qty) {
+            // Cập nhật action form động
+            this.form.action = '{{ url("admin/flash-sales/" . $flashSale->id . "/items") }}/' + itemId;
+            
+            // Fill dữ liệu hiện tại
+            this.inputs.price.value = price;
+            this.inputs.quantity.value = qty;
+            
+            // Hiển thị modal & khóa scroll body
+            this.element.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Auto focus vào ô giá để sửa nhanh
+            setTimeout(() => this.inputs.price.focus(), 100);
+        },
+
+        close: function() {
+            this.element.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    };
+
+    // Binding sự kiện toàn cục cho Modal
+    
+    // 1. Hàm wrapper để gọi từ HTML onclick=""
     function openEditModal(itemId, price, qty) {
-        var form = document.getElementById('editForm');
-        // Update action URL động
-        form.action = '{{ url("admin/flash-sales/" . $flashSale->id . "/items") }}/' + itemId; 
-        
-        document.getElementById('modal_price').value = price;
-        document.getElementById('modal_quantity').value = qty;
-        
-        // Mở modal
-        document.getElementById('editModal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden'; // Chặn scroll trang
+        EditModal.open(itemId, price, qty);
     }
 
     function closeEditModal() {
-        document.getElementById('editModal').classList.add('hidden');
-        document.body.style.overflow = 'auto'; // Mở lại scroll
+        EditModal.close();
     }
     
-    // Đóng modal khi nhấn ESC
+    // 2. Đóng modal khi nhấn phím ESC
     document.addEventListener('keydown', function(event) {
-        if (event.key === "Escape") {
-            closeEditModal();
+        if (event.key === "Escape" && !EditModal.element.classList.contains('hidden')) {
+            EditModal.close();
         }
     });
 </script>

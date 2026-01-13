@@ -107,7 +107,7 @@
                                         <div class="w-10 h-10 rounded border border-slate-200 bg-white overflow-hidden shadow-sm">
                                             <img src="{{ $variant->image_url ? asset('storage/' . $variant->image_url) : asset('storage/' . $product->thumbnail) }}" 
                                                  class="w-full h-full object-cover" 
-                                        onerror="this.onerror=null; this.src='https://placehold.co/50x50?text=No+Img';"
+                                                 onerror="this.src='https://placehold.co/100?text=No+Img'">
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
@@ -168,7 +168,8 @@
                             <img src="{{ $product->thumbnail ? asset('storage/' . $product->thumbnail) : 'https://placehold.co/150x150?text=No+Image' }}" 
                                  class="w-full h-full object-cover rounded" 
                                  id="preview-thumbnail"
-                                 onerror="this.onerror=null; this.src='https://placehold.co/150x150?text=No+Image';"                            <div class="absolute inset-0 bg-black/10 hidden group-hover:flex items-center justify-center rounded transition-all">
+                                 onerror="this.src='https://placehold.co/150x150?text=Error'">
+                            <div class="absolute inset-0 bg-black/10 hidden group-hover:flex items-center justify-center rounded transition-all">
                                 <span class="text-xs text-white bg-black/50 px-2 py-1 rounded">Hiện tại</span>
                             </div>
                         </div>

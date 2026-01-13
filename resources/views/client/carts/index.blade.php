@@ -39,22 +39,39 @@
                                 : ($variant->price ?: ($product->sale_price ?: $product->price));
                             
                             $maxStock = $variant->quantity;
-                            $image = $variant->image ?? $product->img_thumb ?? 'images/no-image.jpg';
+                            $imagePath = $variant->image 
+                                ?? $product->img_thumb 
+                                ?? 'images/no-image.jpg';
+
+                            $imageUrl = asset('img/no-image.png');
+
+                            // 1. Ảnh variant
+                            if (!empty($variant->image) && Storage::disk('public')->exists($variant->image)) {
+                                $imageUrl = asset('storage/' . $variant->image);
+                            }
+                            // 2. Ảnh thumbnail sản phẩm
+                            elseif (!empty($product->thumbnail) && Storage::disk('public')->exists($product->thumbnail)) {
+                                $imageUrl = asset('storage/' . $product->thumbnail);
+                            }
+
                         @endphp
 
                         <div class="p-4 md:p-6 flex gap-4 md:gap-6 group transition-colors hover:bg-slate-50/30 cart-item-row" id="item-row-{{ $item->id }}">
                             {{-- Checkbox --}}
                             <div class="flex items-center">
-                                <input type="checkbox" class="item-checkbox w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                    data-id="{{ $item->id }}" 
+                                <input type="checkbox" class="item-checkbox w-5 h-5 rounded border-slate-300 text-indigo-600"
+                                    data-id="{{ $item->id }}"
                                     {{ $item->is_selected ? 'checked' : '' }}>
                             </div>
 
                             {{-- Image --}}
                             <div class="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 rounded-xl border border-slate-100 overflow-hidden bg-white">
-                                <img src="{{ asset($image) }}" 
-                                     alt="{{ $product->name }}" 
-                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                <img
+                                    src="{{ $imageUrl }}"
+                                    alt="{{ $product->name }}"
+                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    loading="lazy"
+                                >
                             </div>
 
                             {{-- Info --}}
@@ -98,11 +115,15 @@
                                         value="{{ $item->quantity }}" readonly 
                                         id="qty-{{ $item->id }}" data-max="{{ $maxStock }}">
                                     
-                                    <button class="btn-update-qty w-8 h-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        data-id="{{ $item->id }}" data-type="plus"
-                                        {{ $item->quantity >= $maxStock ? 'disabled' : '' }}>
+                                    <button
+                                        class="btn-update-qty w-8 h-full flex items-center justify-center
+                                            bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors"
+                                        data-id="{{ $item->id }}"
+                                        data-type="plus">
                                         <i class="fa-solid fa-plus text-xs"></i>
                                     </button>
+
+
                                 </div>
                                 <div class="text-rose-500 text-[10px] font-medium hidden error-msg-{{ $item->id }}"></div>
                             </div>
@@ -264,34 +285,40 @@
         });
 
         // 3. CẬP NHẬT SỐ LƯỢNG (+/-)
-        $('.btn-update-qty').on('click', function() {
+        $('.btn-update-qty').on('click', function () {
             let btn = $(this);
             let type = btn.data('type');
             let itemId = btn.data('id');
             let input = $('#qty-' + itemId);
             let currentQty = parseInt(input.val());
             let maxStock = parseInt(input.data('max'));
-            let newQty = type === 'plus' ? currentQty + 1 : currentQty - 1;
 
+            let newQty = type === 'plus' ? currentQty + 1 : currentQty - 1;
             if (newQty < 1) return;
-            
-            btn.prop('disabled', true);
+
             $('.error-msg-' + itemId).addClass('hidden').text('');
 
-            $.post("{{ route('client.carts.update') }}", { item_id: itemId, quantity: newQty }, function(res) {
-                btn.prop('disabled', false);
+            $.post("{{ route('client.carts.update') }}", {
+                item_id: itemId,
+                quantity: newQty
+            }, function (res) {
                 if (res.status === 'success') {
                     input.val(newQty);
                     updateCartUI(res.data);
-                    
-                    // Disable nút plus nếu đạt max stock
-                    if(newQty >= maxStock) btn.siblings('[data-type="plus"]').prop('disabled', true);
-                    else btn.siblings('[data-type="plus"]').prop('disabled', false);
+
+                    // Xử lý enable / disable nút +
+                    let plusBtn = btn.parent().find('[data-type="plus"]');
+                    if (newQty >= maxStock) {
+                        plusBtn.prop('disabled', true);
+                    } else {
+                        plusBtn.prop('disabled', false);
+                    }
                 } else {
                     $('.error-msg-' + itemId).removeClass('hidden').text(res.message);
                 }
             });
         });
+
 
         // 4. XÓA SẢN PHẨM
         $('.btn-remove-item').on('click', function() {

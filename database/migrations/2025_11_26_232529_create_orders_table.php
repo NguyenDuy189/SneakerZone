@@ -19,6 +19,7 @@ return new class extends Migration
 
             // Trạng thái đơn
             $table->string('status')->default('pending');
+            $table->string('cancel_reason')->nullable();
 
             // Thanh toán
             $table->string('payment_status')->default('unpaid');

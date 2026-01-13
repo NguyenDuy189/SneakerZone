@@ -68,65 +68,112 @@ class OrderController extends Controller
      */
     public function cancel(Request $request, $id)
     {
-        // 1. Tìm đơn hàng theo ID và User hiện tại
-        $order = Order::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->with('items') 
-            ->firstOrFail();
-
-        // [FIX] Validate trạng thái: 
-        // Cho phép hủy nếu trạng thái là 'pending' (Chờ xử lý) HOẶC 'processing' (Đang đóng gói)
-        // Dùng !in_array để kiểm tra nếu trạng thái KHÔNG nằm trong danh sách cho phép
-        if (!in_array($order->status, ['pending', 'processing'])) {
-            return back()->with('error', 'Đơn hàng đã được bàn giao cho đơn vị vận chuyển, không thể hủy lúc này.');
-        }
-
-        // 3. Transaction
-        DB::beginTransaction();
+        // ====================================================
+        // 1. VALIDATE DỮ LIỆU ĐẦU VÀO
+        // ====================================================
+        $request->validate([
+            'reason_option' => 'required|string',
+            'other_reason'  => 'required_if:reason_option,Khác|nullable|string|max:255',
+        ], [
+            'reason_option.required'     => 'Vui lòng chọn lý do hủy đơn hàng.',
+            'other_reason.required_if'   => 'Vui lòng nhập lý do cụ thể khi chọn mục "Khác".',
+            'other_reason.max'           => 'Lý do hủy không được vượt quá 255 ký tự.',
+        ]);
 
         try {
-            // A. Hoàn trả tồn kho
+            // Bắt đầu Transaction để đảm bảo tính toàn vẹn dữ liệu
+            DB::beginTransaction();
+
+            // ====================================================
+            // 2. TÌM ĐƠN HÀNG & KHÓA UPDATE
+            // ====================================================
+            // Sử dụng lockForUpdate() để chặn các thao tác khác lên đơn này 
+            // trong khi đang xử lý hủy.
+            $order = Order::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->with('items') // Load sẵn items để hoàn kho
+                ->lockForUpdate() 
+                ->firstOrFail();
+
+            // ====================================================
+            // 3. KIỂM TRA TRẠNG THÁI
+            // ====================================================
+            // Chỉ cho phép hủy khi đơn hàng ở trạng thái 'pending' (Chờ xác nhận)
+            // Nếu bạn muốn cho hủy cả khi đang xử lý, thêm 'processing' vào mảng.
+            if (!in_array($order->status, ['pending'])) {
+                // Rollback ngay lập tức nếu trạng thái không hợp lệ
+                DB::rollBack(); 
+                return back()->with('error', 'Đơn hàng đã được xác nhận hoặc đang vận chuyển, không thể hủy.');
+            }
+
+            // ====================================================
+            // 4. XỬ LÝ LÝ DO HỦY (CỘT MỚI)
+            // ====================================================
+            $finalReason = $request->reason_option;
+            if ($request->reason_option === 'Khác') {
+                $finalReason = $request->other_reason;
+            }
+
+            // ====================================================
+            // 5. HOÀN KHO (RESTOCK)
+            // ====================================================
             foreach ($order->items as $item) {
                 if ($item->product_variant_id) {
-                    // Dùng lockForUpdate để tránh race condition
-                    $variant = ProductVariant::lockForUpdate()->find($item->product_variant_id);
+                    $variant = ProductVariant::where('id', $item->product_variant_id)
+                                             ->lockForUpdate() // Khóa dòng biến thể để cộng kho an toàn
+                                             ->first();
+                    
                     if ($variant) {
                         $variant->increment('stock_quantity', $item->quantity);
                     }
                 }
             }
 
-            // B. Cập nhật trạng thái đơn hàng
+            // ====================================================
+            // 6. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
+            // ====================================================
             $order->update([
-                'status' => 'cancelled' // Hoặc 'canceled' tùy DB của bạn
+                'status'        => 'cancelled',
+                'cancel_reason' => $finalReason, // ✅ Lưu vào cột mới
+                // Tùy chọn: Vẫn nối vào note cũ để Admin dễ đọc trong trang chi tiết cũ
+                'note'          => $order->note . " | [Khách hủy]: " . $finalReason
             ]);
 
-            // C. Ghi lịch sử
+            // ====================================================
+            // 7. GHI LỊCH SỬ ĐƠN HÀNG (ORDER HISTORY)
+            // ====================================================
             $history = OrderHistory::create([
                 'order_id'    => $order->id,
                 'user_id'     => Auth::id(),
                 'action'      => 'cancelled',
-                'description' => 'Khách hàng đã chủ động hủy đơn hàng',
+                'description' => 'Khách hàng hủy đơn. Lý do: ' . $finalReason,
             ]);
-            
-            // Load quan hệ user để event realtime hiển thị tên người hủy
-            $history->load('user');
 
+            // Commit Transaction (Lưu tất cả thay đổi vào DB)
             DB::commit();
 
-            // D. Kích hoạt Realtime
+            // ====================================================
+            // 8. GỬI SỰ KIỆN (EVENT/EMAIL/REALTIME)
+            // ====================================================
+            // Phần này để ngoài Transaction để không làm chậm thao tác DB
             try {
-                event(new OrderStatusUpdated($order, 'cancelled', $history));
-            } catch (Exception $e) {
-                Log::error("Realtime Event Error: " . $e->getMessage());
+                if (class_exists(OrderStatusUpdated::class)) {
+                    event(new OrderStatusUpdated($order, 'cancelled', $history));
+                }
+            } catch (\Exception $e) {
+                // Chỉ log lỗi Event, không báo lỗi cho User vì đơn đã hủy thành công rồi
+                Log::error("Event Trigger Error: " . $e->getMessage());
             }
 
             return back()->with('success', 'Đã hủy đơn hàng thành công.');
 
-        } catch (Exception $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
-            Log::error("Client Cancel Order Error: " . $e->getMessage());
-            return back()->with('error', 'Có lỗi xảy ra, vui lòng thử lại sau.');
+            return back()->with('error', 'Đơn hàng không tồn tại hoặc bạn không có quyền truy cập.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Client Cancel Order Error (ID: $id): " . $e->getMessage());
+            return back()->with('error', 'Lỗi hệ thống khi hủy đơn. Vui lòng thử lại sau.');
         }
     }
 }

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Brand;
+use App\Models\Wishlist; // <--- Cần thêm model này
 use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
@@ -129,7 +130,7 @@ class ProductController extends Controller
                 'gallery_images',
                 'variants.attributeValues.attribute' 
             ])
-            // FIX: Tính trung bình sao và số lượng đánh giá đã duyệt
+            // Tính trung bình sao và số lượng đánh giá đã duyệt
             ->withAvg(['reviews' => function($query) {
                 $query->where('is_approved', true);
             }], 'rating')
@@ -140,6 +141,9 @@ class ProductController extends Controller
             ->where('status', 'published')
             ->firstOrFail();
 
+            // [MỚI] Tăng lượt xem sản phẩm (Nếu DB bạn có cột 'views')
+            $product->increment('views');
+
             // 2. Lấy danh sách Review để hiển thị (Phân trang 5 review/trang)
             $reviews = $product->reviews()
                 ->with('user')
@@ -147,24 +151,36 @@ class ProductController extends Controller
                 ->latest()
                 ->paginate(5);
 
-            // 3. (MỚI) Kiểm tra xem user hiện tại đã đánh giá chưa để hiển thị ra form
+            // 3. Kiểm tra User hiện tại
             $userReview = null;
+            $isLiked = false; // [MỚI] Mặc định chưa like
+
             if (Auth::check()) {
+                $userId = Auth::id();
+
+                // 3a. Lấy review cũ của user (để hiện form edit hoặc ẩn form add)
                 $userReview = $product->reviews()
-                    ->where('user_id', Auth::id())
+                    ->where('user_id', $userId)
                     ->first();
+                
+                // 3b. [QUAN TRỌNG] Kiểm tra xem user đã like sản phẩm này chưa
+                $isLiked = Wishlist::where('user_id', $userId)
+                    ->where('product_id', $product->id)
+                    ->exists();
             }
 
-            // 4. Xử lý thuộc tính (Logic nhóm thuộc tính cũ của bạn)
+            // 4. Xử lý thuộc tính (Logic nhóm thuộc tính)
             $groupedAttributes = collect();
             if ($product->variants) {
                 foreach ($product->variants as $variant) {
+                    // Chỉ hiển thị thuộc tính của các biến thể còn hàng hoặc có giá
                     if ($variant->stock_quantity > 0 || $variant->price > 0) { 
                         foreach ($variant->attributeValues as $attrValue) {
                             $attrName = $attrValue->attribute->name;
                             if (!$groupedAttributes->has($attrName)) {
                                 $groupedAttributes->put($attrName, collect());
                             }
+                            // Tránh trùng lặp giá trị (ví dụ nhiều biến thể cùng Size M)
                             if (!$groupedAttributes[$attrName]->contains('id', $attrValue->id)) {
                                 $groupedAttributes[$attrName]->push($attrValue);
                             }
@@ -173,15 +189,18 @@ class ProductController extends Controller
                 }
             }
 
-            // 5. Map biến thể cho JS
+            // 5. Map biến thể cho JS (Để script chọn size/màu hoạt động)
             $variantMap = $product->variants->mapWithKeys(function ($variant) use ($product) {
                 return [
                     $variant->id => [
                         'id' => $variant->id,
                         'attributes' => $variant->attributeValues->pluck('id')->map(fn($id) => (int)$id)->sort()->values()->all(),
                         'stock' => $variant->stock_quantity,
-                        'price' => $variant->price ?? $product->price_regular,
-                        'sku' => $variant->sku
+                        // Nếu biến thể không có giá riêng, lấy giá sản phẩm gốc
+                        'price' => $variant->price ?? $product->price_regular, 
+                        'sku' => $variant->sku,
+                        // Thêm ảnh biến thể để JS đổi ảnh khi chọn
+                        'image' => $variant->image ? asset('storage/'.$variant->image) : null 
                     ]
                 ];
             });
@@ -197,15 +216,19 @@ class ProductController extends Controller
             return view('client.products.show', compact(
                 'product', 
                 'reviews', 
-                'userReview', // <--- Quan trọng: Biến này dùng để điền form cũ
+                'userReview', 
                 'groupedAttributes', 
                 'variantMap', 
-                'relatedProducts'
+                'relatedProducts',
+                'isLiked' // <--- Nhớ truyền biến này sang View
             ));
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Xử lý riêng lỗi 404 để hiển thị trang 404 chuẩn của Laravel
+            abort(404); 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("Show Product Error: " . $e->getMessage());
-            return redirect()->route('client.products.index')->with('error', 'Không tìm thấy sản phẩm.');
+            Log::error("Show Product Error: " . $e->getMessage());
+            return redirect()->route('client.products.index')->with('error', 'Sản phẩm không khả dụng.');
         }
     }
 }

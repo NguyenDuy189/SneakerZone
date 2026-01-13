@@ -135,4 +135,55 @@ class Product extends Model
                     ->withPivot('price', 'quantity');  // Lấy thêm cột giá sale và số lượng
     }
 
+    public function getMainImageAttribute()
+    {
+        return $this->thumbnail
+            ? asset('storage/' . $this->thumbnail)
+            : asset('images/no-image.png');
+    }
+
+    // Ảnh hover
+    public function getHoverImageAttribute()
+    {
+        if (!$this->gallery) return null;
+
+        $gallery = json_decode($this->gallery, true);
+
+        if (is_array($gallery) && count($gallery) > 0) {
+            return asset('storage/' . $gallery[0]);
+        }
+
+        return null;
+    }
+
+    public function getPriceRegularAttribute()
+    {
+        // Kiểm tra xem relation variants đã load chưa
+        if ($this->relationLoaded('variants')) {
+            // Lấy giá gốc nhỏ nhất từ các biến thể
+            $minPrice = $this->variants->min('original_price');
+            return $minPrice ?: 0;
+        }
+
+        // Fallback nếu chưa load variants (hoặc trả về price_min nếu muốn)
+        return $this->price_min ?? 0;
+    }
+
+    /**
+     * Lấy giá bán (Sale Price) từ các biến thể
+     * Logic: Lấy giá bán thấp nhất (nếu có sale)
+     */
+    public function getPriceSaleAttribute()
+    {
+        if ($this->relationLoaded('variants')) {
+            // Lấy giá sale thấp nhất (lớn hơn 0)
+            $minSale = $this->variants->where('sale_price', '>', 0)->min('sale_price');
+            
+            // Nếu không có giá sale nào, trả về 0 hoặc bằng giá gốc
+            return $minSale ?: 0;
+        }
+        
+        return 0;
+    }
+
 }

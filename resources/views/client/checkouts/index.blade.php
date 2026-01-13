@@ -270,7 +270,16 @@
                             @foreach($cart->items as $item)
                                 @php
                                     $price = $item->variant->sale_price > 0 ? $item->variant->sale_price : $item->variant->original_price;
-                                    $imgUrl = $item->variant->image_url ?? $item->variant->product->img_thumbnail ?? 'https://via.placeholder.com/150';
+                                    $imgUrl = asset('img/no-image.png');
+
+                                    // 1. Ảnh variant
+                                    if (!empty($item->variant->image) && Storage::disk('public')->exists($item->variant->image)) {
+                                        $imgUrl = asset('storage/' . $item->variant->image);
+                                    }
+                                    // 2. Ảnh thumbnail sản phẩm
+                                    elseif (!empty($item->variant->product->thumbnail) && Storage::disk('public')->exists($item->variant->product->thumbnail)) {
+                                        $imgUrl = asset('storage/' . $item->variant->product->thumbnail);
+                                    }
                                 @endphp
                                 <li class="py-4 flex gap-4">
                                     <div class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">

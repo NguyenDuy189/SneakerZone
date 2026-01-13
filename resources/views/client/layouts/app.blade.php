@@ -16,10 +16,18 @@
 
     {{-- 3. TAILWIND CSS --}}
     <script src="https://cdn.tailwindcss.com"></script>
+
+    {{-- [QUAN TRỌNG - MỚI] JQUERY (Bắt buộc để Ajax hoạt động) --}}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+
+    {{-- [QUAN TRỌNG - MỚI] SWEETALERT2 (Để hiện popup đẹp) --}}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     {{-- 4. ALPINE.JS --}}
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <style> [x-cloak] { display: none !important; } </style>
     
     {{-- 5. ANIMATE ON SCROLL (AOS) --}}
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
@@ -55,7 +63,14 @@
     </style>
 </head>
 <body class="bg-white text-slate-900 antialiased selection:bg-indigo-500 selection:text-white flex flex-col min-h-screen" 
-      x-data="{ mobileMenuOpen: false, searchOpen: false, cartOpen: false }">
+      x-data="{ 
+          mobileMenuOpen: false, 
+          searchOpen: false, 
+          cartOpen: false,
+          {{-- Logic đếm giỏ hàng --}}
+          cartCount: {{ Auth::check() ? (Auth::user()->cart?->items->sum('quantity') ?? 0) : 0 }} 
+      }"
+      @update-cart-count.window="cartCount = $event.detail.count; console.log('Cart updated:', cartCount)">
 
     {{-- =========================================================== --}}
     {{-- 1. TOP BAR (Thông báo) --}}
@@ -127,12 +142,17 @@
                                     <p class="text-sm font-bold text-slate-800 truncate">{{ Auth::user()->full_name ?? Auth::user()->name }}</p>
                                 </div>
                                 
-                                {{-- Link tới trang Đơn hàng (Dùng route mới của feature) --}}
+                                {{-- [MỚI] Link tới Wishlist trong Dropdown --}}
+                                <a href="{{ route('client.wishlist.index') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
+                                    Sản phẩm yêu thích <span class="text-rose-500 text-xs ml-1">❤</span>
+                                </a>
+
+                                {{-- Link tới trang Đơn hàng --}}
                                 <a href="{{ route('client.account.orders') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
                                     Đơn hàng của tôi
                                 </a>
                                 
-                                {{-- Link tới trang Profile (Dùng route mới của feature) --}}
+                                {{-- Link tới trang Profile --}}
                                 <a href="{{ route('client.account.profile') }}" class="block px-4 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600">
                                     Tài khoản
                                 </a>
@@ -141,7 +161,7 @@
                                     <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm text-indigo-600 font-bold hover:bg-indigo-50">Vào trang quản trị</a>
                                 @endif
                                 
-                                {{-- Nút đăng xuất (Sửa lại thành logout cho đúng luồng) --}}
+                                {{-- Nút đăng xuất --}}
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <button type="submit" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">Đăng xuất</button>
@@ -158,16 +178,47 @@
                         </div>
                     </div>
 
+                    {{-- [MỚI] Wishlist Icon --}}
+                    {{-- Bọc trong x-data để khởi tạo biến đếm và lắng nghe sự kiện --}}
+                    <div class="relative inline-block" 
+                        x-data="{ 
+                            wishlistCount: {{ Auth::check() ? \App\Models\Wishlist::where('user_id', Auth::id())->count() : 0 }} 
+                        }"
+                        @wishlist-updated.window="wishlistCount = $event.detail.count" 
+                    >
+                        <button class="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all mr-1">
+                            <a href="{{ route('client.wishlist.index') }}" title="Danh sách yêu thích" class="relative block">
+                                
+                                <i class="fa-regular fa-heart text-xl"></i>
+                                
+                                {{-- Badge số lượng (Sử dụng Alpine để ẩn hiện và cập nhật số) --}}
+                                <span x-show="wishlistCount > 0" 
+                                    x-text="wishlistCount"
+                                    x-transition.scale
+                                    style="display: none;" {{-- Tránh giật layout khi chưa load JS --}}
+                                    class="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center border border-white shadow-sm">
+                                </span>
+
+                            </a>
+                        </button>
+                    </div>
+
                     {{-- Cart Icon --}}
                     <button class="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition-all">
-                        <a href="{{ route('client.carts.index') }}" class="relative">
+                        <a href="{{ route('client.carts.index') }}" class="relative inline-block">
                             <i class="fa fa-shopping-cart text-xl"></i>
 
-                            @auth
-                                <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1 min-w-[16px] text-center">
-                                    {{ Auth::user()->cart?->items->count() ?? 0 }}
-                                </span>
-                            @endauth
+                            {{-- [MOD] THÊM CLASS 'cart-count-badge' ĐỂ JAVASCRIPT CẬP NHẬT ĐƯỢC --}}
+                            <span x-show="cartCount > 0" 
+                                  x-transition:enter="transition ease-out duration-300"
+                                  x-transition:enter-start="opacity-0 scale-50"
+                                  x-transition:enter-end="opacity-100 scale-100"
+                                  x-transition:leave="transition ease-in duration-300"
+                                  x-transition:leave-start="opacity-100 scale-100"
+                                  x-transition:leave-end="opacity-0 scale-50"
+                                  class="cart-count-badge absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white shadow-sm"
+                                  x-text="cartCount">
+                            </span>
                         </a>
                     </button>
 
@@ -190,6 +241,8 @@
         </div>
     </header>
 
+    {{-- ... (Phần còn lại không thay đổi) ... --}}
+    
     {{-- =========================================================== --}}
     {{-- 3. MOBILE MENU (OFF-CANVAS) --}}
     {{-- =========================================================== --}}
@@ -217,9 +270,8 @@
                         <div class="flex-1 overflow-y-auto py-6 px-6 space-y-6">
                             <a href="{{ route('client.home') }}" class="block text-lg font-bold text-slate-900 hover:text-indigo-600">Trang chủ</a>
                             <a href="{{ route('client.products.index') }}" class="block text-lg font-bold text-slate-900 hover:text-indigo-600">Sản phẩm</a>
-                            <a href="#" class="block text-lg font-bold text-slate-900 hover:text-indigo-600">Nam</a>
-                            <a href="#" class="block text-lg font-bold text-slate-900 hover:text-indigo-600">Nữ</a>
                             <a href="#" class="block text-lg font-bold text-rose-500">Khuyến mãi</a>
+                            <a href="{{ route('client.vouchers.index')}}" class="block text-lg font-bold text-rose-500">Mã giảm giá</a>
                         </div>
 
                         {{-- USER INFO SECTION --}}
@@ -240,11 +292,13 @@
                                     </div>
                                 </a>
 
-                                {{-- Nút thao tác nhanh --}}
                                 <div class="grid grid-cols-2 gap-2 mb-4">
                                      <a href="{{ route('client.account.orders') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-3 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600">Đơn hàng</a>
                                      
-                                     {{-- Sửa route logout mobile --}}
+                                     <a href="{{ route('client.wishlist.index') }}" class="text-sm font-medium text-slate-600 bg-white py-2 px-1 rounded border border-slate-200 text-center hover:bg-indigo-50 hover:text-indigo-600 truncate">
+                                        Yêu thích
+                                     </a>
+
                                      <form method="POST" action="{{ route('logout') }}" class="block">
                                         @csrf
                                         <button type="submit" class="w-full text-sm font-medium text-rose-600 bg-white py-2 px-3 rounded border border-slate-200 hover:bg-rose-50">Đăng xuất</button>
@@ -300,7 +354,6 @@
                 </div>
 
                 {{-- Links --}}
-                {{-- Ví dụ đoạn code Footer --}}
                 <div>
                     <h4 class="font-bold text-lg mb-6 uppercase tracking-wider">Cửa hàng</h4>
                     <ul class="space-y-3 text-sm text-slate-400">
@@ -355,7 +408,10 @@
     @stack('scripts')
 
     {{-- Nhúng Component Toast vào đây --}}
-    @include('client.products.toast-arlert')
+    {{-- Lưu ý: Bạn đang đặt tên file là toast-arlert (dư chữ r), nên tôi giữ nguyên để code chạy --}}
+    @if(view()->exists('client.products.toast-arlert'))
+        @include('client.products.toast-arlert')
+    @endif
 
     {{-- Khai báo hàm JS helper toàn cục (để gọi từ JS dễ hơn) --}}
     <script>

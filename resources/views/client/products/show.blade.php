@@ -4,12 +4,35 @@
 
 @section('content')
 
+ {{-- --- BẮT ĐẦU: LOGIC XỬ LÝ ẢNH THÔNG MINH --- --}}
+@php
+    $mainImg = asset('img/no-image.png'); // 1. Ảnh mặc định
+    
+    // Lấy đường dẫn từ DB (Ưu tiên cột thumbnail, dự phòng image)
+    $dbPath = $product->thumbnail ?? $product->image; 
+
+    if ($dbPath) {
+        $cleanPath = ltrim($dbPath, '/'); // Xử lý lỗi thừa dấu /
+
+        // TRƯỜNG HỢP 1: Ảnh nằm trong thư mục public/img (code cũ)
+        if (str_contains($cleanPath, 'img/') && file_exists(public_path($cleanPath))) {
+            $mainImg = asset($cleanPath);
+        }
+        // TRƯỜNG HỢP 2: Ảnh nằm trong Storage (Chuẩn mới)
+        elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+            $mainImg = asset('storage/' . $cleanPath);
+        }
+    }
+@endphp
+
 {{-- DATA ALPINEJS CHO PRODUCT DETAIL --}}
 <div x-data="productDetail({
         basePrice: {{ $product->price_min ?? 0 }},
         variants: {{ json_encode($variantMap ?? []) }},
-        isLiked: {{ ($product->is_liked ?? false) ? 'true' : 'false' }}
+        isLiked: {{ ($product->is_liked ?? false) ? 'true' : 'false' }},
+        activeImage: '{{ $mainImg }}'
     })" 
+    x-init="activeImage = '{{ $mainImg }}'"
     class="bg-[#F8F9FA] min-h-screen font-sans text-slate-800 pb-20 relative">
 
     {{-- 1. BREADCRUMB --}}
@@ -32,39 +55,61 @@
             <div class="grid grid-cols-1 lg:grid-cols-12">
                 
                 {{-- === CỘT TRÁI: ẢNH === --}}
-                <div class="lg:col-span-6 bg-white p-6 lg:p-8 border-r border-slate-50">
-                    <div class="grid gap-4">
-                        {{-- Ảnh chính --}}
-                        <div class="relative aspect-square bg-[#F4F4F4] rounded-xl overflow-hidden cursor-zoom-in group"
-                             @click="zoomImage = activeImage; zoomOpen = true">
-                            <img :src="activeImage" class="w-full h-full object-cover mix-blend-multiply transition-transform duration-500 group-hover:scale-110">
-                            
-                            @if($product->is_featured)
-                                <div class="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-r from-rose-600 to-orange-500 text-white text-[10px] font-black px-3 py-1.5 rounded uppercase tracking-widest shadow-lg shadow-orange-500/30 animate-pulse">
-                                    <i class="fa-solid fa-fire"></i> Hot Item
-                                </div>
-                            @endif
-                        </div>
-
-                        {{-- Thumbnails --}}
-                        <div class="grid grid-cols-6 gap-2">
-                            <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
-                                    :class="activeImage === '{{ $product->image ? asset('storage/'.$product->image) : asset('img/no-image.png') }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
-                                    @click="activeImage = '{{ $product->image ? asset('storage/'.$product->image) : asset('img/no-image.png') }}'">
-                                <img src="{{ $product->image ? asset('storage/'.$product->image) : asset('img/no-image.png') }}" class="w-full h-full object-cover mix-blend-multiply">
-                            </button>
-                            @if($product->gallery_images)
-                                @foreach($product->gallery_images as $img)
-                                    <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
-                                            :class="activeImage === '{{ asset('storage/'.$img->image_path) }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
-                                            @click="activeImage = '{{ asset('storage/'.$img->image_path) }}'">
-                                            <img src="{{ asset('storage/'.$img->image_path) }}" class="w-full h-full object-cover mix-blend-multiply">
-                                    </button>
-                                @endforeach
-                            @endif
-                        </div>
-                    </div>
+<div class="lg:col-span-6 bg-white p-6 lg:p-8 border-r border-slate-50">
+    <div class="grid gap-4">
+        
+        {{-- A. ẢNH CHÍNH (BIG IMAGE) --}}
+        <div class="relative aspect-square bg-[#F4F4F4] rounded-xl overflow-hidden cursor-zoom-in group"
+             @click="zoomImage = activeImage; zoomOpen = true">
+            
+            {{-- Lưu ý: Dùng :src của Alpine để đổi ảnh, dùng src của Blade để SEO --}}
+            <img :src="activeImage" 
+                 src="{{ $mainImg }}" 
+                 alt="{{ $product->name }}" 
+                 class="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110 mix-blend-multiply">
+            
+            @if($product->is_featured)
+                <div class="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-r from-rose-600 to-orange-500 text-white text-[10px] font-black px-3 py-1.5 rounded uppercase tracking-widest shadow-lg shadow-orange-500/30 animate-pulse">
+                    <i class="fa-solid fa-fire"></i> Hot Item
                 </div>
+            @endif
+        </div>
+
+        {{-- B. THUMBNAILS (ẢNH NHỎ) --}}
+        <div class="grid grid-cols-6 gap-2">
+            
+            {{-- 1. Thumbnail của ảnh chính (ĐÃ SỬA: Dùng $mainImg) --}}
+            <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
+                    :class="activeImage === '{{ $mainImg }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
+                    @click="activeImage = '{{ $mainImg }}'">
+                <img src="{{ $mainImg }}" class="w-full h-full object-cover mix-blend-multiply">
+            </button>
+
+            {{-- 2. Các ảnh Gallery (Logic cũ của bạn đã đúng) --}}
+            @if($product->gallery_images)
+                @foreach($product->gallery_images as $img)
+                    @php
+                        $galleryUrl = asset('img/no-image.png');
+                        $cleanPath = ltrim($img->image_path, '/');
+                        if (str_contains($cleanPath, 'img/') && file_exists(public_path($cleanPath))) {
+                            $galleryUrl = asset($cleanPath);
+                        } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+                            $galleryUrl = asset('storage/' . $cleanPath);
+                        }
+                    @endphp
+
+                    <button class="aspect-square rounded-lg overflow-hidden border transition-all bg-[#F4F4F4]"
+                            :class="activeImage === '{{ $galleryUrl }}' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-transparent hover:border-slate-300'"
+                            @click="activeImage = '{{ $galleryUrl }}'">
+                        <img src="{{ $galleryUrl }}" class="w-full h-full object-cover mix-blend-multiply">
+                    </button>
+                @endforeach
+            @endif
+        </div>
+    </div>
+</div>
+                   
+{{-- --- KẾT THÚC LOGIC --- --}} 
 
                 {{-- === CỘT PHẢI: INFO === --}}
                 <div class="lg:col-span-6 p-6 lg:p-10 flex flex-col justify-center">
@@ -181,10 +226,16 @@
                                 <i class="fa-solid fa-bag-shopping mb-0.5"></i> Thêm vào giỏ
                             </button>
                             
-                            <button type="button" @click="toggleWishlist()"
-                                    class="w-12 h-12 border border-slate-200 rounded-lg flex items-center justify-center transition-all active:scale-90"
-                                    :class="isLiked ? 'bg-rose-50 border-rose-200 text-rose-500' : 'text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50'">
-                                <i class="text-xl transition-transform" :class="isLiked ? 'fa-solid fa-heart scale-110' : 'fa-regular fa-heart'"></i>
+                            <button 
+                                {{-- [FIX] Truyền ID sản phẩm vào đây --}}
+                                @click="toggleWishlist({{ $product->id }})" 
+                                type="button" 
+                                class="group flex h-12 w-12 items-center justify-center rounded-xl border transition-all duration-300 hover:shadow-lg"
+                                :class="isLiked ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-white hover:border-indigo-200'"
+                            >
+                                <i class="fa-heart text-xl transition-colors duration-300"
+                                :class="isLiked ? 'fa-solid text-rose-500' : 'fa-regular text-slate-400 group-hover:text-indigo-500'">
+                                </i>
                             </button>
                         </div>
                     </form>
@@ -351,7 +402,7 @@
     <div x-show="zoomOpen" x-transition.opacity class="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
         <button @click="zoomOpen = false" class="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-black text-white rounded-full hover:rotate-90 transition-transform"><i class="fa-solid fa-xmark"></i></button>
         <img :src="zoomImage" class="max-w-full max-h-[90vh] object-contain shadow-2xl rounded-xl" @click="zoomOpen = false">
-    </div>
+    </div>`
 
     {{-- MODAL REVIEW (FORM) --}}
     <div x-show="showReviewModal" x-cloak class="fixed inset-0 z-[150] flex items-center justify-center p-4">
@@ -407,6 +458,7 @@
 <script>
     function productDetail(config) {
         return {
+            // Giữ nguyên logic lấy ảnh
             activeImage: '{{ $product->image ? asset('storage/'.$product->image) : asset('img/no-image.png') }}',
             currentPrice: config.basePrice,
             currentStock: 0,
@@ -419,6 +471,7 @@
             zoomOpen: false,
             zoomImage: '',
             showReviewModal: false,
+            isLiked: {{ $isLiked ? 'true' : 'false' }},
 
             init() {
                 const keys = Object.keys(this.variantsMap);
@@ -479,12 +532,106 @@
                 }
             },
 
-            toggleWishlist() {
+            toggleWishlist(id) {
+                // 1. Lưu trạng thái cũ để revert nếu lỗi
+                const previousState = this.isLiked;
+
+                // 2. Optimistic UI: Đổi trạng thái ngay lập tức (Để giao diện mượt)
                 this.isLiked = !this.isLiked;
-                // Gọi API toggle wishlist nếu cần
-            },
+
+                // 3. Chuẩn bị dữ liệu
+                const formData = new FormData();
+                formData.append('product_id', id);
+
+                // 4. Gọi API
+                fetch("{{ route('client.wishlist.toggle') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(res => {
+                    if (res.success) {
+                        // --- A. THÀNH CÔNG ---
+                        
+                        // Tạo icon HTML
+                        const iconHtml = res.action === 'added' 
+                            ? `<span class="flex items-center justify-center"><i class="fa-solid fa-heart text-rose-500 text-2xl heart-animation"></i></span>` 
+                            : `<span class="flex items-center justify-center"><i class="fa-solid fa-heart-crack text-slate-400 text-2xl"></i></span>`;
+
+                        if (typeof Swal !== 'undefined') {
+                            const Toast = Swal.mixin({
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 3000,
+                                timerProgressBar: true,
+                                didOpen: (toast) => {
+                                    toast.onmouseenter = Swal.stopTimer;
+                                    toast.onmouseleave = Swal.resumeTimer;
+                                }
+                            });
+
+                            Toast.fire({
+                                iconHtml: iconHtml, 
+                                title: res.message,
+                                customClass: {
+                                    popup: 'colored-toast'
+                                }
+                            });
+                        }
+                    } else {
+                        // --- B. THẤT BẠI (Lỗi Logic) ---
+                        
+                        this.isLiked = previousState; // Hoàn tác UI
+                        
+                        if (res.code === 401) {
+                            // Trường hợp chưa đăng nhập
+                            Swal.fire({
+                                title: 'Yêu cầu đăng nhập',
+                                text: res.message,
+                                icon: 'info',
+                                showCancelButton: true,
+                                confirmButtonColor: '#4f46e5',
+                                cancelButtonColor: '#cbd5e1',
+                                confirmButtonText: 'Đăng nhập',
+                                cancelButtonText: 'Để sau'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = "{{ route('login') }}";
+                                }
+                            });
+                        } else {
+                            // [FIX] Thay this.showToast bằng Swal trực tiếp để tránh lỗi
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'error',
+                                title: res.message || 'Có lỗi xảy ra'
+                            });
+                        }
+                    }
+                })
+                .catch(error => {
+                    // --- C. LỖI MẠNG/SERVER ---
+                    console.error('Error:', error);
+                    this.isLiked = previousState; // Hoàn tác UI
+                    
+                    // [FIX] Thay this.showToast bằng Swal trực tiếp
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'error',
+                        title: 'Lỗi kết nối server!'
+                    });
+                });
+            }, // <--- Đừng quên dấu phẩy này nếu bên dưới còn hàm khác
 
             submitCart() {
+                // 1. Validate Client (Giữ nguyên logic của bạn)
                 @if(isset($groupedAttributes) && $groupedAttributes->count() > 0)
                     if (!this.selectedVariantId) {
                         this.errorMsg = 'Vui lòng chọn đầy đủ phân loại (Size/Màu)!';
@@ -497,10 +644,16 @@
                     return;
                 }
 
+                // 2. Loading State (Mua ngay: Thêm hiệu ứng loading cho nút bấm nếu muốn)
+                // let btn = document.getElementById('addToCartBtn'); 
+                // if(btn) btn.classList.add('opacity-75', 'pointer-events-none');
+
+                // 3. Chuẩn bị dữ liệu
                 const form = document.getElementById('addToCartForm');
                 const formData = new FormData(form);
                 formData.set('product_variant_id', this.selectedVariantId);
 
+                // 4. Gọi API
                 fetch("{{ route('client.carts.add') }}", {
                     method: 'POST',
                     headers: {
@@ -510,38 +663,249 @@
                     body: formData
                 })
                 .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const cartCountEl = document.getElementById('cart-count');
-                        if (cartCountEl) {
-                            cartCountEl.innerText = data.cart_count;
-                            cartCountEl.style.display = 'flex';
-                        }
+                .then(res => {
+
+                    console.log('Dữ liệu Server trả về:', res.data); // <--- Thêm dòng này
+
+                    if (res.success === true) {
                         
-                        if (data.toast) {
-                            window.dispatchEvent(new CustomEvent('show-toast', { detail: data.toast }));
+                        // A. Update số lượng trên Header (Kèm hiệu ứng rung lắc)
+                        const cartBadges = document.querySelectorAll('.cart-count-badge, #cart-count'); 
+                        cartBadges.forEach(el => {
+                            el.innerText = res.data.cart_count; 
+                            el.style.display = 'flex'; 
+                            el.classList.remove('hidden');
+                            
+                            // Reset animation
+                            el.style.animation = 'none';
+                            el.offsetHeight; /* trigger reflow */
+                            el.style.animation = 'bounce 0.5s ease-in-out'; // Đảm bảo bạn có keyframes bounce
+                        });
+                        
+                        // B. HIỂN THỊ ALERT PREMIUM (GLASSMORPHISM)
+                        if (typeof Swal !== 'undefined') {
+                            const fallbackImage = "{{ asset('img/no-image.png') }}"; 
+
+                            const premiumHtml = `
+                                <div class="group relative flex flex-col w-full max-w-sm overflow-hidden rounded-xl bg-white/95 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md border border-white/20 ring-1 ring-black/5">
+                                    
+                                    <div class="flex items-center p-4 relative z-10">
+                                        <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-3xl group-hover:bg-indigo-500/20 transition-all duration-500"></div>
+                                        
+                                        <div class="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 shadow-sm">
+                                            <img src="${res.data.image}" 
+                                                onerror="this.onerror=null; this.src='${fallbackImage}';"
+                                                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                                alt="${res.data.product_name}">
+                                        </div>
+
+                                        <div class="ml-4 flex flex-1 flex-col justify-center text-left min-w-0">
+                                            <div class="mb-1 flex items-center gap-1.5">
+                                                <div class="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
+                                                    <svg class="h-2.5 w-2.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                    </svg>
+                                                </div>
+                                                <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Đã thêm vào giỏ</span>
+                                            </div>
+
+                                            <h4 class="truncate text-sm font-bold text-slate-800 pr-2" title="${res.data.product_name}">
+                                                ${res.data.product_name}
+                                            </h4>
+                                            
+                                            ${res.data.variant_name ? `<p class="text-xs font-medium text-slate-500 mt-0.5 truncate">${res.data.variant_name}</p>` : ''}
+
+                                            <div class="mt-2 flex items-center gap-3">
+                                                <a href="{{route('client.carts.index')}}" class="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline decoration-2 underline-offset-2 transition-colors">
+                                                    Xem giỏ hàng
+                                                </a>
+                                                <span class="text-slate-300 text-xs">|</span>
+                                                <button type="button" onclick="Swal.close()" class="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors">
+                                                    Đóng
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="h-1 w-full bg-slate-100">
+                                        <div class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-progress-bar"></div>
+                                    </div>
+                                </div>
+                            `;
+
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                html: premiumHtml,
+                                showConfirmButton: false,
+                                timer: 5000, 
+                                timerProgressBar: false, // [QUAN TRỌNG] Tắt thanh chạy mặc định của thư viện
+                                width: 'auto',
+                                padding: 0,
+                                background: 'transparent',
+                                didOpen: (toast) => {
+                                    toast.onmouseenter = Swal.stopTimer;
+                                    toast.onmouseleave = Swal.resumeTimer;
+                                }
+                            });
                         } else {
-                            window.showToast(data.message, 'success');
+                            alert(res.message);
                         }
+
                     } else {
-                        window.showToast(data.message || 'Có lỗi xảy ra', 'error');
+                        // TRƯỜNG HỢP LỖI (Giao diện đỏ tinh tế)
+                        const errorHtml = `
+                            <div class="flex w-full max-w-sm overflow-hidden rounded-xl bg-white p-4 shadow-2xl border-l-4 border-rose-500">
+                                <div class="mr-4 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+                                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                                </div>
+                                <div class="flex-1 text-left">
+                                    <h4 class="text-sm font-bold text-slate-800">Không thể thêm</h4>
+                                    <p class="mt-1 text-xs font-medium text-slate-500 leading-relaxed">
+                                        ${res.message || 'Số lượng trong kho không đủ hoặc có lỗi hệ thống.'}
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                html: errorHtml,
+                                showConfirmButton: false,
+                                timer: 4000,
+                                background: 'transparent'
+                            });
+                        } else {
+                            alert(res.message);
+                        }
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    window.showToast('Lỗi kết nối, vui lòng thử lại.', 'error');
-                });
+                    // Fallback UI cho lỗi mạng
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'error',
+                            title: 'Lỗi kết nối',
+                            text: 'Vui lòng kiểm tra mạng và thử lại.'
+                        });
+                    }
+                })
+                // .finally(() => { 
+                //    if(btn) btn.classList.remove('opacity-75', 'pointer-events-none');
+                // });
             }
         }
     }
 </script>
 
 <style>
-    [x-cloak] { display: none !important; }
+    /* 1. Custom Scrollbar */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* =========================================
+       PHẦN 1: CẤU HÌNH CHUNG SWEETALERT (RESET)
+       ========================================= */
+    
+    /* Đẩy thông báo ra xa mép màn hình */
+    div.swal2-container.swal2-top-end {
+        padding: 1rem !important;
+    }
+
+    /* [QUAN TRỌNG] Reset nền trong suốt để hỗ trợ Custom HTML (cho Giỏ hàng) */
+    .swal2-popup.swal2-toast {
+        padding: 0 !important;
+        overflow: visible !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        width: auto !important;
+    }
+
+    /* =========================================
+       PHẦN 2: STYLE CHO TOAST "GIỎ HÀNG" (CUSTOM HTML)
+       ========================================= */
+
+    /* Animation thanh thời gian tự vẽ */
+    @keyframes progressBar {
+        0% { width: 100%; }
+        100% { width: 0%; }
+    }
+
+    .animate-progress-bar {
+        animation: progressBar 5s linear forwards; 
+    }
+
+    .group:hover .animate-progress-bar {
+        animation-play-state: paused;
+    }
+
+    /* =========================================
+       PHẦN 3: STYLE CHO TOAST "YÊU THÍCH" (COLORED TOAST)
+       ========================================= */
+
+    /* [FIX QUAN TRỌNG] Khôi phục nền trắng và bóng đổ (Ghi đè phần Reset ở trên) */
+    .colored-toast {
+        display: flex !important;
+        align-items: center !important;
+        padding: 12px 20px !important;
+        background: #fff !important; /* Quan trọng: Màu trắng */
+        box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+        border-radius: 12px !important;
+        border: 1px solid #f1f5f9 !important;
+        min-width: 300px !important;
+    }
+
+    /* Sửa lỗi icon bị lệch hoặc có viền tròn bao quanh */
+    .colored-toast .swal2-icon {
+        border: none !important; /* Xóa viền tròn */
+        margin: 0 15px 0 0 !important;
+        width: auto !important;
+        height: auto !important;
+        background: transparent !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    /* Chữ tiêu đề */
+    .colored-toast .swal2-title {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        color: #334155 !important;
+        margin: 0 !important;
+        text-align: left !important;
+    }
+
+    /* Thanh thời gian (Progress bar) màu hồng cho Wishlist */
+    .colored-toast .swal2-timer-progress-bar {
+        background: #f43f5e !important; 
+        height: 3px !important;
+        bottom: 0 !important;
+    }
+
+    /* =========================================
+       PHẦN 4: ANIMATION TIM ĐẬP (HEART BEAT)
+       ========================================= */
+    @keyframes heartBeat {
+        0% { transform: scale(1); }
+        14% { transform: scale(1.3); }
+        28% { transform: scale(1); }
+        42% { transform: scale(1.3); }
+        70% { transform: scale(1); }
+    }
+    
+    .heart-animation {
+        display: inline-block; 
+        animation: heartBeat 1.3s ease-in-out;
+    }
 </style>
 
 <script>

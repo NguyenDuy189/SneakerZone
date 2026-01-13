@@ -35,14 +35,18 @@
                 }
             @endphp
 
-            <img src="{{ $mainImg }}" alt="{{ $product->name }}"
-                 class="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-110 {{ $hoverImg ? 'group-hover:opacity-0' : '' }}"
-                 loading="lazy" onerror="this.src='https://placehold.co/400x500?text=No+Image'">
-            
-            @if($hoverImg)
-                <img src="{{ $hoverImg }}" alt="{{ $product->name }}"
-                     class="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-100">
+            <img src="{{ $product->main_image }}" alt="{{ $product->name }}"
+                class="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 
+                        group-hover:scale-110 {{ $product->hover_image ? 'group-hover:opacity-0' : '' }}"
+                loading="lazy"
+                onerror="this.src='https://placehold.co/400x500?text=No+Image'">
+
+            @if($product->hover_image)
+                <img src="{{ $product->hover_image }}" alt="{{ $product->name }}"
+                    class="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 
+                            scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-100">
             @endif
+
             
             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300"></div>
         </a>

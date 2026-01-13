@@ -36,6 +36,7 @@ class Order extends Model
         'payment_method',   // cod, vnpay, momo...
         'payment_status',   // unpaid, paid, refunded
         'status',           // Trạng thái đơn hàng
+        'cancel_reason', // // Lý do hủy hàng
         'note',             // Ghi chú khách hàng
         'paid_at'           // Thời gian thanh toán
     ];

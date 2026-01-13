@@ -68,9 +68,11 @@
 
                             {{-- Ảnh sản phẩm --}}
                             <a href="{{ route('client.products.show', $product->slug) }}" class="block relative overflow-hidden pt-[100%]">
-                                <img src="{{ asset($product->thumbnail) }}" 
-                                     alt="{{ $product->name }}" 
-                                     class="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                
+                                {{-- SỬA Ở ĐÂY: Thêm 'storage/' và kiểm tra tồn tại --}}
+                                <img src="{{ $product->thumbnail ? asset('storage/' . $product->thumbnail) : asset('img/no-image.png') }}" 
+                                    alt="{{ $product->name }}" 
+                                    class="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                                 
                                 {{-- Nút xem chi tiết (Overlay) --}}
                                 <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -79,7 +81,7 @@
                                     </span>
                                 </div>
                             </a>
-
+                            
                             {{-- Thông tin sản phẩm --}}
                             <div class="p-4 flex flex-col flex-grow">
                                 {{-- Tên --}}

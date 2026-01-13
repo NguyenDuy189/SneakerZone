@@ -18,6 +18,10 @@ use App\Http\Controllers\Client\AccountController;
 use App\Http\Controllers\Client\VoucherController;
 use App\Http\Controllers\Client\PageController;
 use App\Http\Controllers\Client\ProductSaleController;
+use App\Http\Controllers\Client\OrderController as ClientOrderController;
+use App\Http\Controllers\Client\WishlistController;
+
+
 
 // 2. Admin Controllers
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
@@ -39,7 +43,6 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\InventoryController;
-
 // 3. Middleware
 use App\Http\Middleware\CheckRole;
 
@@ -85,18 +88,32 @@ Route::name('client.')->group(function () {
     Route::middleware(['auth'])->group(function () {
 
         // --- ACCOUNT & PROFILE ---
-        Route::controller(AccountController::class)->prefix('account')->name('account.')->group(function () {
-            // Profile
-            Route::get('/profile', 'index')->name('profile');
-            Route::get('/profile/edit', 'edit')->name('edit');
-            Route::post('/profile/update', 'updateProfile')->name('update');
-            
-            // Orders
-            Route::get('/orders', 'orders')->name('orders');
-            Route::get('/orders/{id}', 'orderDetail')->name('order_details');
-            Route::patch('/orders/{id}/cancel', 'cancelOrder')->name('orders.cancel');
-            Route::patch('/orders/{id}/payment-method', 'changePaymentMethod')->name('orders.change_payment');
-        });
+        Route::controller(AccountController::class)
+            ->prefix('account')
+            ->name('account.')
+            ->group(function () {
+
+                // Kết quả: client. + account. + profile = client.account.profile
+                Route::get('/profile', 'index')->name('profile');
+
+                // Kết quả: client. + account. + edit = client.account.edit (KHỚP LỖI CỦA BẠN)
+                Route::get('/profile/edit', 'edit')->name('edit');
+
+                // Kết quả: client. + account. + update
+                Route::post('/profile/update', 'updateProfile')->name('update');
+
+                // Orders
+                Route::get('/orders', 'orders')->name('orders');
+                Route::get('/orders/{id}', 'orderDetail')->name('order_details');
+                Route::patch('/orders/{id}/payment-method', 'changePaymentMethod')->name('orders.change_payment');
+            });
+
+        // --- 2. ROUTE HỦY ĐƠN ---
+        // Vì route này dùng Controller khác, nên để riêng ra
+        // Nhưng vẫn nằm trong nhóm 'client.' tổng, nên ta đặt tên là 'account.orders.cancel'
+        // Kết quả: client. + account.orders.cancel = client.account.orders.cancel
+        Route::patch('/account/orders/cancel/{id}', [ClientOrderController::class, 'cancel'])
+            ->name('account.orders.cancel');
 
         // --- CART ---
         Route::controller(CartController::class)->prefix('cart')->name('carts.')->group(function () {
@@ -117,7 +134,7 @@ Route::name('client.')->group(function () {
             Route::post('/process', 'process')->name('process');
             Route::get('/success', 'success')->name('success');
             Route::get('/failed', 'paymentFailed')->name('failed');
-            
+
             // Payment Callbacks
             Route::get('fake-momo', 'fakeMomoScreen')->name('fake_momo');
             Route::get('fake-momo-process', 'fakeMomoProcess')->name('fake_momo_process');
@@ -126,11 +143,23 @@ Route::name('client.')->group(function () {
             Route::post('momo-callback', 'momoCallback')->name('momo_callback');
             Route::get('/zalopay-return', 'zalopayCallback')->name('zalopay_return');
         });
+
+        // --- WISHLIST ---
+        Route::controller(WishlistController::class)
+            ->prefix('wishlist')     // URL sẽ là /wishlist và /wishlist/toggle
+            ->name('wishlist.')      // Tên route sẽ ghép với client. -> wishlist
+            ->group(function () {
+                // Tên đầy đủ: wishlistindex
+                Route::get('/', 'index')->name('index');
+
+                // Tên đầy đủ: wishlisttoggle
+                Route::post('/toggle', 'toggle')->name('toggle');
+            });
     });
 });
 
 // --- C. STATIC PAGES (FOOTER) ---
-Route::prefix('page')->name('client.page.')->controller(PageController::class)->group(function() {
+Route::prefix('page')->name('client.page.')->controller(PageController::class)->group(function () {
     Route::get('/ve-chung-toi', 'about')->name('about');
     Route::get('/lien-he', 'contact')->name('contact');
     Route::get('/chinh-sach-doi-tra', 'returnPolicy')->name('return-policy');
@@ -153,7 +182,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     // Login
     Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AdminAuthController::class, 'login'])->name('login.submit');
-    
+
     // Forgot Password
     Route::get('forgot-password', [AdminAuthController::class, 'showLinkRequestForm'])->name('password.request');
     Route::post('forgot-password', [AdminAuthController::class, 'sendResetLinkEmail'])->name('password.email');
@@ -167,145 +196,144 @@ Route::prefix('admin')
     ->middleware(['auth', CheckRole::class . ':admin,staff']) // Middleware check role
     ->group(function () {
 
-    // Logout
-    Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+        // Logout
+        Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
 
-    // Dashboard
-    Route::get('/', fn () => redirect()->route('admin.dashboard'));
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
+        // Dashboard
+        Route::get('/', fn() => redirect()->route('admin.dashboard'));
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
 
-    // 1. ORDERS
-    Route::controller(OrderController::class)->prefix('orders')->name('orders.')->group(function () {
-        Route::get('{id}/print', 'print')->name('print');
-        Route::put('{id}/status', 'updateStatus')->name('update_status');
-    });
-    // Bỏ 'only' để mở các route create, store, edit...
-    Route::resource('orders', OrderController::class)->except(['destroy']);
-
-    // 2. PRODUCTS (Phức tạp nhất - Đã gộp và sắp xếp để tránh lỗi)
-    Route::controller(AdminProductController::class)->prefix('products')->name('products.')->group(function () {
-        // --- Custom Routes (Trash, Restore, Force Delete) ---
-        Route::get('/trash', 'trash')->name('trash');
-        Route::post('/{id}/restore', 'restore')->name('restore');
-        Route::delete('/{id}/force-delete', 'forceDelete')->name('force_delete');
-
-        // --- Variants ---
-        Route::get('/{id}/variants', 'variants')->name('variants');
-        Route::post('/{id}/variants', 'storeVariant')->name('variants.store');
-        Route::put('/variants/{variant_id}', 'updateVariant')->name('variants.update');
-        Route::delete('/variants/{variant_id}', 'destroyVariant')->name('variants.destroy');
-
-        // --- Images ---
-        Route::delete('/images/{id}', 'deleteGalleryImage')->name('images.delete'); // Đã sửa tên hàm cho khớp controller
-        
-        // --- Standard CRUD (Manual Definition to ensure order) ---
-        Route::get('/', 'index')->name('index');
-        Route::get('/create', 'create')->name('create');
-        Route::post('/', 'store')->name('store');
-        Route::get('/{id}/edit', 'edit')->name('edit');
-        Route::put('/{id}', 'update')->name('update');
-        Route::delete('/{id}', 'destroy')->name('destroy');
-    });
-
-    // 3. BASIC RESOURCES (Categories, Brands, Attributes)
-    Route::resource('categories', CategoryController::class);
-    Route::resource('brands', BrandController::class);
-    
-    // Attributes (Custom + Resource)
-    Route::controller(AttributeController::class)->prefix('attributes')->name('attributes.')->group(function () {
-        Route::post('{id}/values', 'storeValue')->name('values.store');
-        Route::delete('values/{id}', 'destroyValue')->name('values.destroy');
-    });
-    Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']);
-
-    // 4. INVENTORY (Đã thêm route bị thiếu gây lỗi 500/404)
-    Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-    Route::put('/inventory/{id}/quick-update', [InventoryController::class, 'quickUpdate'])->name('inventory.quick_update');
-    Route::get('inventory/logs', [InventoryLogController::class, 'index'])
-            ->name('inventory.logs.index');    
-    // 5. REVIEWS
-    Route::controller(AdminReviewController::class)->prefix('reviews')->name('reviews.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('{id}', 'show')->name('show');
-        Route::put('{id}/approve', 'approve')->name('approve');
-        Route::delete('{id}', 'destroy')->name('destroy');
-    });
-
-    // 6. MARKETING (Discounts, Banners, Flash Sales)
-    Route::resource('discounts', DiscountController::class);
-    Route::resource('banners', BannerController::class);
-
-    // Flash Sales (Logic phức tạp)
-    Route::get('flash-sales/search-products', [FlashSaleController::class, 'searchProductVariants'])->name('flash_sales.product_search');
-    Route::controller(FlashSaleController::class)
-        ->prefix('flash-sales/{flash_sale}')
-        ->name('flash_sales.')
-        ->whereNumber('flash_sale')
-        ->group(function () {
-            Route::get('items', 'items')->name('items');
-            Route::post('items', 'addItem')->name('items.store');
-            Route::put('items/{item}', 'updateItem')->name('items.update');
-            Route::delete('items/{item}', 'removeItem')->name('items.destroy');
-            Route::get('statistics', 'statistics')->name('statistics');
+        // 1. ORDERS
+        Route::controller(OrderController::class)->prefix('orders')->name('orders.')->group(function () {
+            Route::get('{id}/print', 'print')->name('print');
+            Route::put('{id}/status', 'updateStatus')->name('update_status');
         });
-    Route::get('flash-sales/{flash_sale}', fn ($id) => redirect()->route('admin.flash_sales.items', $id))->whereNumber('flash_sale')->name('flash_sales.show');
-    Route::resource('flash-sales', FlashSaleController::class)->names('flash_sales')->except(['show']);
+        // Bỏ 'only' để mở các route create, store, edit...
+        Route::resource('orders', OrderController::class)->except(['destroy']);
 
-    // 7. CUSTOMERS
-    Route::controller(CustomerUserController::class)->prefix('customers')->name('customers.')->group(function () {
-        // Main CRUD
-        Route::get('/', 'index')->name('index');
-        Route::get('create', 'create')->name('create');
-        Route::post('/', 'store')->name('store');
-        Route::get('{id}', 'show')->name('show');
-        Route::get('{id}/edit', 'edit')->name('edit');
-        Route::put('{id}', 'update')->name('update');
-        Route::put('{id}/status', 'updateStatus')->name('update_status');
-        Route::delete('{id}', 'destroy')->name('destroy');
-        
-        // Addresses
-        Route::get('{id}/addresses/create', 'createAddress')->name('addresses.create');
-        Route::post('{id}/addresses', 'storeAddress')->name('addresses.store');
-        Route::get('{id}/addresses/{address_id}/edit', 'editAddress')->name('addresses.edit');
-        Route::put('{id}/addresses/{address_id}', 'updateAddress')->name('addresses.update');
-        Route::delete('{id}/addresses/{address_id}', 'deleteAddress')->name('addresses.destroy');
-    });
+        // 2. PRODUCTS (Phức tạp nhất - Đã gộp và sắp xếp để tránh lỗi)
+        Route::controller(AdminProductController::class)->prefix('products')->name('products.')->group(function () {
+            // --- Custom Routes (Trash, Restore, Force Delete) ---
+            Route::get('/trash', 'trash')->name('trash');
+            Route::post('/{id}/restore', 'restore')->name('restore');
+            Route::delete('/{id}/force-delete', 'forceDelete')->name('force_delete');
 
-    // 8. LOGISTICS (Suppliers, Purchase Orders, Shipping)
-    Route::resource('suppliers', SupplierController::class);
-    
-    Route::controller(PurchaseOrderController::class)->prefix('purchase-orders')->name('purchase_orders.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('create', 'create')->name('create');
-        Route::post('/', 'store')->name('store');
-        Route::get('{id}', 'show')->name('show');
-        Route::put('{id}/status', 'updateStatus')->name('update_status');
-    });
+            // --- Variants ---
+            Route::get('/{id}/variants', 'variants')->name('variants');
+            Route::post('/{id}/variants', 'storeVariant')->name('variants.store');
+            Route::put('/variants/{variant_id}', 'updateVariant')->name('variants.update');
+            Route::delete('/variants/{variant_id}', 'destroyVariant')->name('variants.destroy');
 
-    Route::controller(ShippingController::class)->prefix('shipping')->name('shipping.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('create', 'create')->name('create');
-        Route::post('store', 'store')->name('store');
-        Route::get('trash', 'trash')->name('trash');
-        // Group with ID
-        Route::prefix('{shipping}')->group(function () {
-            Route::get('show', 'show')->name('show');
-            Route::post('restore', 'restore')->name('restore');
-            Route::delete('destroy', 'destroy')->name('destroy');
-            Route::get('assign', 'assignForm')->name('assign');
-            Route::post('assign', 'assign')->name('assign.submit');
-            Route::put('status', 'updateStatus')->name('update_status');
+            // --- Images ---
+            Route::delete('/images/{id}', 'deleteGalleryImage')->name('images.delete'); // Đã sửa tên hàm cho khớp controller
+
+            // --- Standard CRUD (Manual Definition to ensure order) ---
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::get('/{id}/edit', 'edit')->name('edit');
+            Route::put('/{id}', 'update')->name('update');
+            Route::delete('/{id}', 'destroy')->name('destroy');
+        });
+
+        // 3. BASIC RESOURCES (Categories, Brands, Attributes)
+        Route::resource('categories', CategoryController::class);
+        Route::resource('brands', BrandController::class);
+
+        // Attributes (Custom + Resource)
+        Route::controller(AttributeController::class)->prefix('attributes')->name('attributes.')->group(function () {
+            Route::post('{id}/values', 'storeValue')->name('values.store');
+            Route::delete('values/{id}', 'destroyValue')->name('values.destroy');
+        });
+        Route::resource('attributes', AttributeController::class)->except(['create', 'edit', 'update']);
+
+        // 4. INVENTORY (Đã thêm route bị thiếu gây lỗi 500/404)
+        Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::put('/inventory/{id}/quick-update', [InventoryController::class, 'quickUpdate'])->name('inventory.quick_update');
+        Route::get('inventory/logs', [InventoryLogController::class, 'index'])
+            ->name('inventory.logs.index');
+        // 5. REVIEWS
+        Route::controller(AdminReviewController::class)->prefix('reviews')->name('reviews.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('{id}', 'show')->name('show');
+            Route::put('{id}/approve', 'approve')->name('approve');
+            Route::delete('{id}', 'destroy')->name('destroy');
+        });
+
+        // 6. MARKETING (Discounts, Banners, Flash Sales)
+        Route::resource('discounts', DiscountController::class);
+        Route::resource('banners', BannerController::class);
+
+        // Flash Sales (Logic phức tạp)
+        Route::get('flash-sales/search-products', [FlashSaleController::class, 'searchProductVariants'])->name('flash_sales.product_search');
+        Route::controller(FlashSaleController::class)
+            ->prefix('flash-sales/{flash_sale}')
+            ->name('flash_sales.')
+            ->whereNumber('flash_sale')
+            ->group(function () {
+                Route::get('items', 'items')->name('items');
+                Route::post('items', 'addItem')->name('items.store');
+                Route::put('items/{item}', 'updateItem')->name('items.update');
+                Route::delete('items/{item}', 'removeItem')->name('items.destroy');
+                Route::get('statistics', 'statistics')->name('statistics');
+            });
+        Route::get('flash-sales/{flash_sale}', fn($id) => redirect()->route('admin.flash_sales.items', $id))->whereNumber('flash_sale')->name('flash_sales.show');
+        Route::resource('flash-sales', FlashSaleController::class)->names('flash_sales')->except(['show']);
+
+        // 7. CUSTOMERS
+        Route::controller(CustomerUserController::class)->prefix('customers')->name('customers.')->group(function () {
+            // Main CRUD
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::get('{id}', 'show')->name('show');
+            Route::get('{id}/edit', 'edit')->name('edit');
+            Route::put('{id}', 'update')->name('update');
+            Route::put('{id}/status', 'updateStatus')->name('update_status');
+            Route::delete('{id}', 'destroy')->name('destroy');
+
+            // Addresses
+            Route::get('{id}/addresses/create', 'createAddress')->name('addresses.create');
+            Route::post('{id}/addresses', 'storeAddress')->name('addresses.store');
+            Route::get('{id}/addresses/{address_id}/edit', 'editAddress')->name('addresses.edit');
+            Route::put('{id}/addresses/{address_id}', 'updateAddress')->name('addresses.update');
+            Route::delete('{id}/addresses/{address_id}', 'deleteAddress')->name('addresses.destroy');
+        });
+
+        // 8. LOGISTICS (Suppliers, Purchase Orders, Shipping)
+        Route::resource('suppliers', SupplierController::class);
+
+        Route::controller(PurchaseOrderController::class)->prefix('purchase-orders')->name('purchase_orders.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::get('{id}', 'show')->name('show');
+            Route::put('{id}/status', 'updateStatus')->name('update_status');
+        });
+
+        Route::controller(ShippingController::class)->prefix('shipping')->name('shipping.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('create', 'create')->name('create');
+            Route::post('store', 'store')->name('store');
+            Route::get('trash', 'trash')->name('trash');
+            // Group with ID
+            Route::prefix('{shipping}')->group(function () {
+                Route::get('show', 'show')->name('show');
+                Route::post('restore', 'restore')->name('restore');
+                Route::delete('destroy', 'destroy')->name('destroy');
+                Route::get('assign', 'assignForm')->name('assign');
+                Route::post('assign', 'assign')->name('assign.submit');
+                Route::put('status', 'updateStatus')->name('update_status');
+            });
+        });
+
+        // 9. SYSTEM (Users, Settings)
+        Route::resource('users', AdminUserController::class)->names('users');
+
+        Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('edit', 'edit')->name('edit');
+            Route::post('update', 'update')->name('update');
         });
     });
-
-    // 9. SYSTEM (Users, Settings)
-    Route::resource('users', AdminUserController::class)->names('users');
-    
-    Route::controller(SettingController::class)->prefix('settings')->name('settings.')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('edit', 'edit')->name('edit');
-        Route::post('update', 'update')->name('update');
-    });
-
-});
